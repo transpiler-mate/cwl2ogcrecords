@@ -1,5 +1,5 @@
 <!--
-Copyright 2026 Transpiler-Mate
+Copyright 2026 Terradue
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ limitations under the License.
 
 [![PyPI - Version](https://img.shields.io/pypi/v/cwl2ogcrecords.svg)](https://pypi.org/project/cwl2ogcrecords)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/cwl2ogcrecords.svg)](https://pypi.org/project/cwl2ogcrecords)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/transpiler-mate/cwl2ogcrecords/package.yaml?branch=develop&event=push&label=build&logo=githubactions)](https://github.com/transpiler-mate/cwl2ogcrecords/actions/workflows/package.yaml?query=branch%3Adevelop)
+[![Code coverage](https://img.shields.io/codecov/c/github/transpiler-mate/cwl2ogcrecords/develop?logo=codecov)](https://app.codecov.io/gh/transpiler-mate/cwl2ogcrecords/tree/develop)
 
 CWL to OGC API - Records Transpiler-Mate Plugin.
 
