@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://Transpiler-Mate.github.io/cwl2ogcrecords/reference/metadata/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Typed metadata - CWL to OGC API - Records</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Typed metadata";
+        var mkdocs_page_input_path = "reference/metadata.md";
+        var mkdocs_page_url = "/cwl2ogcrecords/reference/metadata/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> CWL to OGC API - Records
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Tutorials</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../tutorials/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../tutorials/first-steps/">First steps</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">How-to guides</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../how-to/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../how-to/install/">Install</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../how-to/use-cli/">Use the CLI</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../plugin/">Plugin</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Typed metadata</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#languages-and-themes">Languages and themes</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#identifiers-and-formats">Identifiers and formats</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#contacts">Contacts</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#typing-and-validation">Typing and validation</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../ogc_record/">OGC API - Records implementation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../api/">API</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Explanation</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../explanation/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../explanation/architecture/">Architecture</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">CWL to OGC API - Records</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Reference</li>
+      <li class="breadcrumb-item active">Typed metadata</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Transpiler-Mate/cwl2ogcrecords/edit/main/docs/reference/metadata.md">Edit on cwl2ogcrecords</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="typed-metadata">Typed metadata<a class="headerlink" href="#typed-metadata" title="Permanent link">&para;</a></h1>
+<p>Import the models from <code>cwl2ogcrecords.ogc_record</code>. They are <code>TypedDict</code>
+structures with the same key spelling as the serialized JSON. Constructors
+return ordinary dictionaries; nested changes remain visible in record metadata.</p>
+<table>
+<thead>
+<tr>
+<th>Record property</th>
+<th>Item or value type</th>
+<th>Required fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>language</code></td>
+<td><code>Language</code></td>
+<td><code>code</code></td>
+</tr>
+<tr>
+<td><code>languages</code>, <code>resource_languages</code></td>
+<td><code>list[Language]</code></td>
+<td><code>code</code> per item</td>
+</tr>
+<tr>
+<td><code>themes</code></td>
+<td><code>list[Theme]</code></td>
+<td><code>scheme</code>, <code>concepts</code>; each <code>ThemeConcept</code> requires <code>id</code></td>
+</tr>
+<tr>
+<td><code>external_ids</code></td>
+<td><code>list[ExternalId]</code></td>
+<td><code>value</code>; <code>scheme</code> is optional</td>
+</tr>
+<tr>
+<td><code>formats</code></td>
+<td><code>list[Format]</code></td>
+<td><code>name</code> or <code>mediaType</code>, or both</td>
+</tr>
+<tr>
+<td><code>contacts</code></td>
+<td><code>list[Contact]</code></td>
+<td><code>name</code> or <code>organization</code>, or both</td>
+</tr>
+</tbody>
+</table>
+<p><code>Format</code> and <code>Contact</code> are union type aliases, not constructors. Use
+<code>NamedFormat</code> / <code>MediaTypeFormat</code> and <code>NamedContact</code> / <code>OrganizationContact</code>.</p>
+<h2 id="languages-and-themes">Languages and themes<a class="headerlink" href="#languages-and-themes" title="Permanent link">&para;</a></h2>
+<p><code>Language</code> optionally accepts <code>name</code>, <code>alternate</code>, and <code>dir</code>. The direction is
+one of <code>ltr</code>, <code>rtl</code>, <code>ttb</code>, or <code>btt</code>. The schema default is <code>ltr</code>; constructing a
+model does not insert it. <code>code</code> represents an RFC 5646 language tag; a supplied
+<code>name</code> must be nonempty.</p>
+<p>A <code>Theme</code> contains a scheme string and a nonempty list of <code>ThemeConcept</code> items.
+Each concept has an <code>id</code> and optional <code>title</code>, <code>description</code>, and URI <code>url</code>.</p>
+<h2 id="identifiers-and-formats">Identifiers and formats<a class="headerlink" href="#identifiers-and-formats" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cwl2ogcrecords.ogc_record</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExternalId</span><span class="p">,</span> <span class="n">MediaTypeFormat</span><span class="p">,</span> <span class="n">NamedFormat</span>
+
+<span class="n">identifier</span> <span class="o">=</span> <span class="n">ExternalId</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s2">"example-123"</span><span class="p">,</span> <span class="n">scheme</span><span class="o">=</span><span class="s2">"https://example.org/ids"</span><span class="p">)</span>
+<span class="n">format_by_name</span> <span class="o">=</span> <span class="n">NamedFormat</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"GeoJSON"</span><span class="p">)</span>
+<span class="n">format_by_type</span> <span class="o">=</span> <span class="n">MediaTypeFormat</span><span class="p">(</span><span class="n">mediaType</span><span class="o">=</span><span class="s2">"application/geo+json"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"GeoJSON"</span><span class="p">)</span>
+</code></pre></div>
+<h2 id="contacts">Contacts<a class="headerlink" href="#contacts" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cwl2ogcrecords.ogc_record</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ContactAddress</span><span class="p">,</span>
+    <span class="n">ContactDetail</span><span class="p">,</span>
+    <span class="n">ContactLink</span><span class="p">,</span>
+    <span class="n">ContactLogo</span><span class="p">,</span>
+    <span class="n">NamedContact</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">contact</span> <span class="o">=</span> <span class="n">NamedContact</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"Alex Example"</span><span class="p">,</span>
+    <span class="n">organization</span><span class="o">=</span><span class="s2">"Example organization"</span><span class="p">,</span>
+    <span class="n">emails</span><span class="o">=</span><span class="p">[</span><span class="n">ContactDetail</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s2">"alex@example.org"</span><span class="p">,</span> <span class="n">roles</span><span class="o">=</span><span class="p">[</span><span class="s2">"work"</span><span class="p">])],</span>
+    <span class="n">phones</span><span class="o">=</span><span class="p">[</span><span class="n">ContactDetail</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="s2">"+390612345678"</span><span class="p">,</span> <span class="n">roles</span><span class="o">=</span><span class="p">[</span><span class="s2">"work"</span><span class="p">])],</span>
+    <span class="n">addresses</span><span class="o">=</span><span class="p">[</span><span class="n">ContactAddress</span><span class="p">(</span><span class="n">city</span><span class="o">=</span><span class="s2">"Rome"</span><span class="p">,</span> <span class="n">country</span><span class="o">=</span><span class="s2">"IT"</span><span class="p">)],</span>
+    <span class="n">links</span><span class="o">=</span><span class="p">[</span><span class="n">ContactLink</span><span class="p">(</span><span class="n">href</span><span class="o">=</span><span class="s2">"https://example.org"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"text/html"</span><span class="p">)],</span>
+    <span class="n">logo</span><span class="o">=</span><span class="n">ContactLogo</span><span class="p">(</span>
+        <span class="n">href</span><span class="o">=</span><span class="s2">"https://example.org/logo.png"</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="s2">"image/png"</span><span class="p">,</span> <span class="n">rel</span><span class="o">=</span><span class="s2">"icon"</span>
+    <span class="p">),</span>
+    <span class="n">roles</span><span class="o">=</span><span class="p">[</span><span class="s2">"publisher"</span><span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Both contact variants optionally accept <code>identifier</code>, <code>position</code>, <code>logo</code>,
+<code>phones</code>, <code>emails</code>, <code>addresses</code>, <code>links</code>, <code>hoursOfService</code>, <code>contactInstructions</code>,
+and <code>roles</code>. <code>NamedContact</code> requires <code>name</code>; <code>OrganizationContact</code> requires
+<code>organization</code>. Either can also supply the other field.</p>
+<ul>
+<li><code>ContactDetail</code> reuses the required string <code>value</code> structure used by external
+  identifiers, with optional <code>roles</code>. Phone values follow the schema's
+  international-number pattern; email values use email format.</li>
+<li><code>ContactAddress</code> has optional <code>deliveryPoint</code> (a list of address lines), <code>city</code>,
+  <code>administrativeArea</code>, <code>postalCode</code>, <code>country</code>, and <code>roles</code>.</li>
+<li><code>ContactLink</code> requires URI <code>href</code> and media <code>type</code>; <code>rel</code> is optional.</li>
+<li><code>ContactLogo</code> also requires <code>rel="icon"</code>; its media type should describe an image.</li>
+<li>Links and logos share optional <code>hreflang</code>, <code>title</code>, integer <code>length</code>, string-list
+  <code>profile</code>, and date-time strings <code>created</code> and <code>updated</code>. <code>hreflang</code> is a string,
+  not a <code>Language</code> object.</li>
+<li><code>Roles</code> is a list of strings; the schema requires at least one entry when present.</li>
+</ul>
+<h2 id="typing-and-validation">Typing and validation<a class="headerlink" href="#typing-and-validation" title="Permanent link">&para;</a></h2>
+<p>The types express field types, required keys, literal values, and alternatives.
+They do not enforce URI/email formats, regular expressions, minimum lengths,
+or other schema constraints at runtime. Missing required keys can still be
+constructed at runtime; use a static type checker and, where needed, an
+<a href="../ogc_record/#validation-and-loading-boundaries">explicit schema validator</a>.</p>
+<p><code>MetadataField.__get__</code> currently returns <code>Any</code>, so reading a record accessor
+loses some static type information. These structures do not change the live
+properties dictionary or add automatic validation on assignment. Assigning
+<code>None</code> to an optional metadata accessor removes its property.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../plugin/" class="btn btn-neutral float-left" title="Plugin"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../ogc_record/" class="btn btn-neutral float-right" title="OGC API - Records implementation">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Transpiler-Mate/cwl2ogcrecords" class="fa fa-code-fork" style="color: #fcfcfc"> cwl2ogcrecords</a>
+        </span>
+    
+    
+      <span><a href="../plugin/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../ogc_record/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

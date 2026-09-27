@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://Transpiler-Mate.github.io/cwl2ogcrecords/reference/ogc_record/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>OGC API - Records implementation - CWL to OGC API - Records</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "OGC API - Records implementation";
+        var mkdocs_page_input_path = "reference/ogc_record.md";
+        var mkdocs_page_url = "/cwl2ogcrecords/reference/ogc_record/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> CWL to OGC API - Records
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Tutorials</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../tutorials/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../tutorials/first-steps/">First steps</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">How-to guides</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../how-to/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../how-to/install/">Install</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../how-to/use-cli/">Use the CLI</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../plugin/">Plugin</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../metadata/">Typed metadata</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">OGC API - Records implementation</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#example">Example</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#contract-and-defaults">Contract and defaults</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#extension-compatibility">Extension compatibility</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#temporal-model-and-serialization">Temporal model and serialization</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#validation-and-loading-boundaries">Validation and loading boundaries</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../api/">API</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Explanation</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../explanation/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../explanation/architecture/">Architecture</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">CWL to OGC API - Records</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Reference</li>
+      <li class="breadcrumb-item active">OGC API - Records implementation</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Transpiler-Mate/cwl2ogcrecords/edit/main/docs/reference/ogc_record.md">Edit on cwl2ogcrecords</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="ogc-api-records-pystac-item-subclass">OGC API - Records: PySTAC Item subclass<a class="headerlink" href="#ogc-api-records-pystac-item-subclass" title="Permanent link">&para;</a></h1>
+<p>An OGC API Records GeoJSON model with PySTAC Item identity, link/asset APIs,
+and access to existing Item-oriented extension factories.</p>
+<h2 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">cwl2ogcrecords.ogc_record</span><span class="w"> </span><span class="kn">import</span> <span class="n">OGCRecord</span><span class="p">,</span> <span class="n">OrganizationContact</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pystac.extensions.eo</span><span class="w"> </span><span class="kn">import</span> <span class="n">EOExtension</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pystac.extensions.projection</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProjectionExtension</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pystac</span>
+
+<span class="n">record</span> <span class="o">=</span> <span class="n">OGCRecord</span><span class="p">(</span>
+    <span class="nb">id</span><span class="o">=</span><span class="s1">'elevation-record'</span><span class="p">,</span>
+    <span class="n">geometry</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">properties</span><span class="o">=</span><span class="p">{</span><span class="s1">'type'</span><span class="p">:</span> <span class="s1">'dataset'</span><span class="p">},</span>
+    <span class="n">time</span><span class="o">=</span><span class="p">{</span><span class="s1">'interval'</span><span class="p">:</span> <span class="p">[</span><span class="s1">'2020-01-01'</span><span class="p">,</span> <span class="s1">'..'</span><span class="p">]},</span>
+<span class="p">)</span>
+<span class="n">record</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="s1">'Elevation dataset'</span>
+<span class="n">record</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="s1">'An example catalog record'</span>
+<span class="n">record</span><span class="o">.</span><span class="n">keywords</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'elevation'</span><span class="p">]</span>
+<span class="n">record</span><span class="o">.</span><span class="n">contacts</span> <span class="o">=</span> <span class="p">[</span><span class="n">OrganizationContact</span><span class="p">(</span><span class="n">organization</span><span class="o">=</span><span class="s1">'Example organization'</span><span class="p">)]</span>
+<span class="n">record</span><span class="o">.</span><span class="n">properties</span><span class="p">[</span><span class="s1">'my-extension:quality'</span><span class="p">]</span> <span class="o">=</span> <span class="s1">'reviewed'</span>
+
+<span class="n">ProjectionExtension</span><span class="o">.</span><span class="n">ext</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">add_if_missing</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">code</span> <span class="o">=</span> <span class="s1">'EPSG:4326'</span>
+<span class="c1"># EO fields are appropriate only when the described resource has EO semantics.</span>
+<span class="n">EOExtension</span><span class="o">.</span><span class="n">ext</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">add_if_missing</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">cloud_cover</span> <span class="o">=</span> <span class="mf">5.0</span>
+<span class="n">record</span><span class="o">.</span><span class="n">add_asset</span><span class="p">(</span><span class="s1">'data'</span><span class="p">,</span> <span class="n">pystac</span><span class="o">.</span><span class="n">Asset</span><span class="p">(</span><span class="s1">'https://example.org/elevation.tif'</span><span class="p">))</span>
+<span class="n">record</span><span class="o">.</span><span class="n">add_link</span><span class="p">(</span><span class="n">pystac</span><span class="o">.</span><span class="n">Link</span><span class="p">(</span><span class="s1">'license'</span><span class="p">,</span> <span class="s1">'https://example.org/license'</span><span class="p">))</span>
+
+<span class="n">payload</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>  <span class="c1"># OGC representation; no invented stac_version/date</span>
+<span class="n">restored</span> <span class="o">=</span> <span class="n">OGCRecord</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">EOExtension</span><span class="o">.</span><span class="n">ext</span><span class="p">(</span><span class="n">restored</span><span class="p">)</span><span class="o">.</span><span class="n">cloud_cover</span> <span class="o">==</span> <span class="mf">5.0</span>
+
+<span class="n">record</span><span class="o">.</span><span class="n">set_self_href</span><span class="p">(</span><span class="s1">'/tmp/record.json'</span><span class="p">)</span>
+<span class="n">record</span><span class="o">.</span><span class="n">save_object</span><span class="p">()</span>
+<span class="n">restored</span> <span class="o">=</span> <span class="n">OGCRecord</span><span class="o">.</span><span class="n">from_file</span><span class="p">(</span><span class="s1">'/tmp/record.json'</span><span class="p">)</span>
+</code></pre></div>
+<p>See <a href="../metadata/">typed metadata</a> for all nested models and construction examples.</p>
+<h2 id="contract-and-defaults">Contract and defaults<a class="headerlink" href="#contract-and-defaults" title="Permanent link">&para;</a></h2>
+<p>Source schemas:</p>
+<ul>
+<li>https://schemas.opengis.net/ogcapi/records/part1/1.0/openapi/schemas/recordGeoJSON.yaml</li>
+<li>https://schemas.opengis.net/ogcapi/records/part1/1.0/openapi/schemas/recordCommonProperties.yaml</li>
+<li>https://schemas.opengis.net/ogcapi/records/part1/1.0/openapi/schemas/time.yaml</li>
+</ul>
+<p>The root schema requires <code>id</code>, <code>type</code>, <code>geometry</code>, and <code>properties</code>. It does not
+supply application defaults for title, contacts, dates, or other metadata. This
+implementation emits <code>type: Feature</code>, defaults geometry to null, and requires
+an identifier. Omitting properties produces null; pass <code>{}</code> for an empty object.
+Internally properties is always a dictionary so extension accessors work; a
+parsed null is preserved on export until properties are populated. Links default
+to an empty list. No title, date, or conformance claim is fabricated.</p>
+<p><code>OGCRecord</code> provides direct live accessors for all fields currently listed by
+recordCommonProperties: created, updated, type, title, description, keywords,
+themes, language, languages, resourceLanguages, externalIds, formats, contacts,
+license, and rights. Python names use underscores for compound names. The older <code>record_metadata</code>
+view remains available and accesses the same dictionary. <code>record.type</code> maps to
+<code>properties.type</code>; the top-level GeoJSON type stays <code>Feature</code>. Dates
+remain JSON strings; nested values remain dictionaries/lists. Optional accessor
+assignment of None removes a property. Unknown properties are retained.</p>
+<p><code>time</code>, <code>conforms_to</code>, and <code>link_templates</code> map to their OGC top-level fields.
+Reading the two list accessors creates an empty list if missing, allowing append.
+To preserve an explicitly null time, set <code>record.time = None</code>; to omit it, remove
+<code>record.extra_fields['time']</code>. <code>from_dict</code> preserves missing versus null time.</p>
+<p>OGC integer identifiers survive export through <code>record_id</code>; the inherited <code>id</code>
+is their string form for PySTAC utilities. Changing <code>id</code> changes the exported
+identifier (to a string). Inputs with boolean identifiers are rejected.</p>
+<h2 id="extension-compatibility">Extension compatibility<a class="headerlink" href="#extension-compatibility" title="Permanent link">&para;</a></h2>
+<p>The class really inherits Item: <code>isinstance(record, pystac.Item)</code> is true. It
+retains properties, assets, asset ownership, links, collection_id, datetime,
+stac_extensions, common_metadata and the inherited extension accessor. No fixed
+extension allowlist is used. Existing and future Item-oriented factories can
+therefore accept it, subject to their own requirements.</p>
+<p>This is not a guarantee for every extension. Extensions may require valid
+geometry, an actual temporal extent, assets, or other STAC-specific semantics.
+An extension may also change its implementation or serialize internally. Review
+new extensions against your Records and pin/test PySTAC upgrades.</p>
+<p>Extension declarations remain in <code>stac_extensions</code>, and assets remain in
+<code>assets</code>, as foreign members in the OGC representation. They are never silently
+removed or renamed to <code>conformsTo</code>. Keep conformance identifiers separate and
+only declare conformance you actually implement. Unknown top-level fields are
+preserved through <code>extra_fields</code> (managed fields cannot be supplied there).</p>
+<h2 id="temporal-model-and-serialization">Temporal model and serialization<a class="headerlink" href="#temporal-model-and-serialization" title="Permanent link">&para;</a></h2>
+<p><code>to_dict()</code> and <code>to_record_dict()</code> serialize the OGC representation; inherited
+<code>save_object()</code> and <code>__geo_interface__</code> therefore use that representation too.
+<code>from_dict()</code> accepts Records without STAC version or STAC datetime. Its migrate
+argument is accepted for PySTAC signature compatibility but does not invoke STAC
+migrations. It always copies input metadata; preserve_dict=False is only a hint.</p>
+<p>The constructor initializes STACObject directly, then initializes Item's required
+attributes. It intentionally does not call Item.<strong>init</strong>, avoiding the mandatory
+STAC datetime/interval check without synthetic dates. This is the principal
+maintenance seam and the reason for the PySTAC version constraint.</p>
+<p>OGC <code>time</code> is independent of STAC <code>datetime</code> / start_datetime / end_datetime.
+Date-only and open OGC intervals cannot be losslessly converted automatically.
+Explicit STAC datetime constructor arguments are preserved in properties. Do not
+assume that changing OGC time will update STAC time, or vice versa.</p>
+<p><code>to_stac_item()</code> creates a separate ordinary Item only when genuine STAC datetime
+or start/end values exist. It preserves Record foreign fields and extensions.
+It does not guarantee full STAC validity: geometry/bbox and extension constraints
+still need validation via the returned Item's validate().</p>
+<h2 id="validation-and-loading-boundaries">Validation and loading boundaries<a class="headerlink" href="#validation-and-loading-boundaries" title="Permanent link">&para;</a></h2>
+<p>This initial implementation performs basic structural recognition, not complete
+validation of geometry, nested metadata, times or extension schemas. The supplied
+OGC schemas use OpenAPI 3.0 constructs such as nullable and external references;
+do not feed them blindly to a Draft 2020-12 JSON Schema validator. In particular,
+the object/oneOf branches in the published root schema deserve review with your
+chosen validator because their alternatives can overlap.</p>
+<p><code>record.validate(validator=...)</code> accepts an explicitly configured validator with
+a <code>validate(document)</code> method. Resolve the OGC schema references and dialect
+before supplying it. Calling validate() without one raises an actionable error
+instead of incorrectly running STAC validation. The returned schema URI identifies
+the intended contract; configuring the validator correctly is the caller's duty.
+No complete OGC or extension-schema validation is claimed by the tests.</p>
+<p>Use <code>OGCRecord.from_file</code> and <code>OGCRecord.from_dict</code>. Global <code>pystac.read_file</code>,
+automatic link resolution, STAC catalog traversal, and pystac-client do not
+register this class automatically. Root/parent/collection traversal still assumes
+STAC catalogs. Generic GeoJSON and STAC Features overlap structurally; the
+matches_object_type method is not a unique Record discriminator.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../metadata/" class="btn btn-neutral float-left" title="Typed metadata"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../api/" class="btn btn-neutral float-right" title="API">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Transpiler-Mate/cwl2ogcrecords" class="fa fa-code-fork" style="color: #fcfcfc"> cwl2ogcrecords</a>
+        </span>
+    
+    
+      <span><a href="../metadata/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../api/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

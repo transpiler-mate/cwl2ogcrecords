@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://Transpiler-Mate.github.io/cwl2ogcrecords/reference/plugin/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Plugin - CWL to OGC API - Records</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Plugin";
+        var mkdocs_page_input_path = "reference/plugin.md";
+        var mkdocs_page_url = "/cwl2ogcrecords/reference/plugin/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> CWL to OGC API - Records
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Tutorials</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../tutorials/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../tutorials/first-steps/">First steps</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">How-to guides</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../how-to/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../how-to/install/">Install</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../how-to/use-cli/">Use the CLI</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../">Overview</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Plugin</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#options">Options</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#metadata-mapping">Metadata mapping</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#current-boundaries">Current boundaries</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../metadata/">Typed metadata</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../ogc_record/">OGC API - Records implementation</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../api/">API</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Explanation</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../explanation/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../explanation/architecture/">Architecture</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">CWL to OGC API - Records</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Reference</li>
+      <li class="breadcrumb-item active">Plugin</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Transpiler-Mate/cwl2ogcrecords/edit/main/docs/reference/plugin.md">Edit on cwl2ogcrecords</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="plugin-reference">Plugin reference<a class="headerlink" href="#plugin-reference" title="Permanent link">&para;</a></h1>
+<p>The <code>transpiler_mate.plugins</code> entry-point group registers <code>cwl2ogcrecords</code> as
+<code>cwl2ogcrecords.plugin:cwl2ogcrecords</code>. The host supplies a <code>TranspilerContext</code>;
+the plugin returns <code>None</code> and writes a JSON file.</p>
+<h2 id="options">Options<a class="headerlink" href="#options" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Python type</th>
+<th>Default</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>output</code> / <code>--output</code></td>
+<td><code>pathlib.Path</code></td>
+<td><code>ogc-record.json</code></td>
+<td>Destination JSON file; parent directories are created and existing files are overwritten.</td>
+</tr>
+</tbody>
+</table>
+<p><code>CWL2OGCAPIRecordsOptions</code> rejects unknown options. There is no <code>project_id</code>
+option in the current implementation.</p>
+<h2 id="metadata-mapping">Metadata mapping<a class="headerlink" href="#metadata-mapping" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Context or software metadata</th>
+<th>Record output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>context.process_id</code></td>
+<td><code>id</code>; otherwise a generated <code>urn:uuid:…</code></td>
+</tr>
+<tr>
+<td><code>date_created</code></td>
+<td><code>properties.created</code> as an ISO datetime string</td>
+</tr>
+<tr>
+<td>Conversion time</td>
+<td><code>properties.updated</code></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td><code>properties.title</code></td>
+</tr>
+<tr>
+<td>Truthy <code>description</code></td>
+<td><code>properties.description</code>; otherwise omitted</td>
+</tr>
+<tr>
+<td>Fixed English language</td>
+<td><code>language</code> and <code>resourceLanguages</code>, using <code>en-US</code> and <code>English (United States)</code></td>
+</tr>
+<tr>
+<td><code>license</code></td>
+<td>String values or <code>CreativeWork.identifier</code>, joined with <code>:</code></td>
+</tr>
+<tr>
+<td><code>author</code></td>
+<td><code>contacts</code>, one entry per <code>Person</code> or <code>AuthorRole</code></td>
+</tr>
+<tr>
+<td>String <code>keywords</code></td>
+<td><code>keywords</code></td>
+</tr>
+<tr>
+<td>Complete <code>DefinedTerm</code> keywords</td>
+<td><code>themes</code>, grouped by <code>in_defined_term_set</code></td>
+</tr>
+<tr>
+<td><code>software_help</code> entries with a URL</td>
+<td>Links with <code>rel="help"</code> and the entry's name as title</td>
+</tr>
+</tbody>
+</table>
+<p>Dates become datetime strings; date-only values become midnight UTC, naive
+datetimes are labeled UTC, and aware datetimes retain their offset. The plugin
+currently obtains its update time with <code>datetime.now()</code> before applying this
+conversion.</p>
+<p>A theme concept uses <code>term_code</code> as <code>id</code>, <code>name</code> as <code>title</code>, <code>description</code>, and
+the term-set URI as <code>url</code>. A defined term is included only when its scheme,
+code, name, and description are all truthy. The plugin initializes <code>keywords</code>
+and <code>themes</code> to empty lists even when no entries qualify.</p>
+<p>Contacts use the author's identifier, <code>family_name, given_name</code>, first
+affiliation's name, and email address(es). <code>AuthorRole.role_name</code> becomes
+<code>position</code>; a plain <code>Person</code> gets <code>position="N/A"</code>. The role is not copied into
+contact <code>roles</code>.</p>
+<h2 id="current-boundaries">Current boundaries<a class="headerlink" href="#current-boundaries" title="Permanent link">&para;</a></h2>
+<p>The plugin expects a usable creation date, authors with at least one affiliation
+and email information, license information, and software-help objects. It does
+not supply fallbacks for all missing metadata. A help object without a URL is
+skipped; a missing help object is not handled equivalently.</p>
+<p>The plugin leaves geometry null and does not populate resource type, formats,
+external identifiers, temporal extent, or conformance declarations. Those can
+be supplied when using <code>OGCRecord</code> directly. No schema validation is performed
+before writing. In particular, an empty <code>themes</code> list may need to be omitted
+before validating against the OGC schema's minimum length constraint.</p>
+<p>Output is indented JSON without a self link. File-writing failures are wrapped
+in <code>PluginExecutionError</code>; earlier conversion errors are outside that wrapper.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../" class="btn btn-neutral float-left" title="Overview"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../metadata/" class="btn btn-neutral float-right" title="Typed metadata">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Transpiler-Mate/cwl2ogcrecords" class="fa fa-code-fork" style="color: #fcfcfc"> cwl2ogcrecords</a>
+        </span>
+    
+    
+      <span><a href="../" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../metadata/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
