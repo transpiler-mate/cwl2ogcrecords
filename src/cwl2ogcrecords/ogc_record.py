@@ -1,4 +1,4 @@
-# Copyright 2026 Transpiler-Mate
+# Copyright 2026 Terradue
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -279,22 +279,24 @@ class OGCRecord(RecordMetadataMixin, pystac.Item):
     """
 
     SCHEMA_URI = (
-        "https://schemas.opengis.net/ogcapi/records/part1/1.0/"
-        "openapi/schemas/recordGeoJSON.yaml"
+        "https://schemas.opengis.net/ogcapi/records/part1/1.0/openapi/schemas/recordGeoJSON.yaml"
     )
-    _RESERVED = {
-        "id",
-        "type",
-        "geometry",
-        "properties",
-        "links",
-        "assets",
-        "bbox",
-        "collection",
-        "stac_extensions",
-    }
+    _RESERVED = frozenset(
+        {
+            "id",
+            "type",
+            "geometry",
+            "properties",
+            "links",
+            "assets",
+            "bbox",
+            "collection",
+            "stac_extensions",
+        }
+    )
 
-    def __init__(  # noqa: C901
+    # Preserve the positional PySTAC Item constructor API and OGC keyword options.
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         id: str | int,
         geometry: dict[str, Any] | None = None,
@@ -312,7 +314,16 @@ class OGCRecord(RecordMetadataMixin, pystac.Item):
         time: dict[str, Any] | None = None,
         conforms_to: list[str] | None = None,
         link_templates: list[dict[str, Any]] | None = None,
-    ):
+    ) -> None:
+        """Initialize a record, copying metadata and assigning asset ownership.
+
+        OGC ``time`` is independent of the STAC datetime arguments. Optional
+        OGC fields override matching entries in ``extra_fields`` when supplied.
+
+        Raises:
+            TypeError: If the identifier is not a string or integer.
+            ValueError: If extra fields override managed record fields.
+        """
         if isinstance(id, bool) or not isinstance(id, (str, int)):
             raise TypeError("Record id must be a string or integer")
         pystac.STACObject.__init__(self, list(stac_extensions or []))
@@ -328,21 +339,23 @@ class OGCRecord(RecordMetadataMixin, pystac.Item):
         self.assets = {}
         self.collection_id = None
         self._stac_io = None
-        self.datetime = datetime
-        if datetime is not None:
-            self.properties["datetime"] = datetime_to_str(datetime)
-        elif self.properties.get("datetime") is not None:
-            self.datetime = str_to_datetime(self.properties["datetime"])
-        if start_datetime is not None:
-            self.properties["start_datetime"] = datetime_to_str(start_datetime)
-        if end_datetime is not None:
-            self.properties["end_datetime"] = datetime_to_str(end_datetime)
-        if time is not None:
-            self.time = deepcopy(time)
-        if conforms_to is not None:
-            self.conforms_to = list(conforms_to)
-        if link_templates is not None:
-            self.link_templates = deepcopy(link_templates)
+        self._set_temporal_properties(datetime, start_datetime, end_datetime)
+        for field_name, field_value in (
+            ("time", time),
+            ("conformsTo", conforms_to),
+            ("linkTemplates", link_templates),
+        ):
+            if field_value is not None:
+                self.extra_fields[field_name] = deepcopy(field_value)
+        self._attach_stac_objects(collection, assets, href)
+
+    def _attach_stac_objects(
+        self,
+        collection: str | pystac.Collection | None,
+        assets: dict[str, pystac.Asset] | None,
+        href: str | None,
+    ) -> None:
+        """Set collection links, asset ownership, and the record's location."""
         if isinstance(collection, pystac.Collection):
             self.set_collection(collection)
         elif collection is not None:
@@ -351,6 +364,22 @@ class OGCRecord(RecordMetadataMixin, pystac.Item):
             self.add_asset(key, asset)
         if href is not None:
             self.set_self_href(href)
+
+    def _set_temporal_properties(
+        self,
+        instant: Datetime | None,
+        start: Datetime | None,
+        end: Datetime | None,
+    ) -> None:
+        """Apply explicit STAC dates, retaining dates already in properties."""
+        self.datetime = instant
+        if instant is not None:
+            self.properties["datetime"] = datetime_to_str(instant)
+        elif self.properties.get("datetime") is not None:
+            self.datetime = str_to_datetime(self.properties["datetime"])
+        for field_name, value in (("start_datetime", start), ("end_datetime", end)):
+            if value is not None:
+                self.properties[field_name] = datetime_to_str(value)
 
     @property
     def record_id(self) -> str | int:
@@ -370,7 +399,17 @@ class OGCRecord(RecordMetadataMixin, pystac.Item):
 
     @property
     def conforms_to(self) -> list[str]:
-        return self.extra_fields.setdefault("conformsTo", [])
+        """The live list of conformance URIs.
+
+        Raises:
+            TypeError: If the stored value is not a list of strings.
+        """
+        conformance = self.extra_fields.setdefault("conformsTo", [])
+        if not isinstance(conformance, list) or not all(
+            isinstance(uri, str) for uri in conformance
+        ):
+            raise TypeError("conformsTo must be a list of strings")
+        return conformance
 
     @conforms_to.setter
     def conforms_to(self, value: list[str]) -> None:
@@ -378,7 +417,17 @@ class OGCRecord(RecordMetadataMixin, pystac.Item):
 
     @property
     def link_templates(self) -> list[dict[str, Any]]:
-        return self.extra_fields.setdefault("linkTemplates", [])
+        """The live list of link template dictionaries.
+
+        Raises:
+            TypeError: If the stored value is not a list of dictionaries.
+        """
+        templates = self.extra_fields.setdefault("linkTemplates", [])
+        if not isinstance(templates, list) or not all(
+            isinstance(template, dict) for template in templates
+        ):
+            raise TypeError("linkTemplates must be a list of dictionaries")
+        return templates
 
     @link_templates.setter
     def link_templates(self, value: list[dict[str, Any]]) -> None:
@@ -409,9 +458,7 @@ class OGCRecord(RecordMetadataMixin, pystac.Item):
         if self.stac_extensions:
             doc["stac_extensions"] = list(self.stac_extensions)
         if self.assets:
-            doc["assets"] = {
-                key: deepcopy(asset.to_dict()) for key, asset in self.assets.items()
-            }
+            doc["assets"] = {key: deepcopy(asset.to_dict()) for key, asset in self.assets.items()}
         if self.collection_id is not None:
             doc["collection"] = self.collection_id
         return doc
@@ -446,9 +493,7 @@ class OGCRecord(RecordMetadataMixin, pystac.Item):
         Always copies document metadata, even when preserve_dict=False.
         """
         if not cls.matches_object_type(d):
-            raise ValueError(
-                "Expected a Record GeoJSON Feature with id, geometry, properties"
-            )
+            raise ValueError("Expected a Record GeoJSON Feature with id, geometry, properties")
         obj = cls(
             id=d["id"],
             geometry=d["geometry"],
@@ -457,10 +502,7 @@ class OGCRecord(RecordMetadataMixin, pystac.Item):
             collection=d.get("collection"),
             stac_extensions=d.get("stac_extensions"),
             extra_fields={k: v for k, v in d.items() if k not in cls._RESERVED},
-            assets={
-                k: pystac.Asset.from_dict(deepcopy(v))
-                for k, v in d.get("assets", {}).items()
-            },
+            assets={k: pystac.Asset.from_dict(deepcopy(v)) for k, v in d.get("assets", {}).items()},
         )
         for link in d.get("links", []):
             if href is None or link.get("rel") != "self":
@@ -486,12 +528,9 @@ class OGCRecord(RecordMetadataMixin, pystac.Item):
         Constructing an Item does not replace full STAC schema validation.
         """
         if self.datetime is None and not all(
-            self.properties.get(k) is not None
-            for k in ("start_datetime", "end_datetime")
+            self.properties.get(k) is not None for k in ("start_datetime", "end_datetime")
         ):
-            raise ValueError(
-                "STAC export requires datetime or start_datetime/end_datetime"
-            )
+            raise ValueError("STAC export requires datetime or start_datetime/end_datetime")
         extra = deepcopy(self.extra_fields)
         extra.pop("stac_version", None)
         item = pystac.Item(
@@ -517,8 +556,7 @@ class OGCRecord(RecordMetadataMixin, pystac.Item):
         """
         if validator is None:
             raise ValueError(
-                "Supply an OGC schema validator; for STAC use "
-                "record.to_stac_item().validate()"
+                "Supply an OGC schema validator; for STAC use record.to_stac_item().validate()"
             )
         validator.validate(self.to_dict(transform_hrefs=False))
         return [self.SCHEMA_URI]

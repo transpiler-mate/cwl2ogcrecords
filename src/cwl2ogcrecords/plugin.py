@@ -1,4 +1,4 @@
-# Copyright 2026 Transpiler-Mate
+# Copyright 2026 Terradue
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,16 +71,15 @@ def _to_datetime(value: date | datetime) -> str:
     return datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc).isoformat()
 
 
-def _add_kw_themes(metadata: SoftwareApplication, record: OGCRecord):
+def _add_kw_themes(metadata: SoftwareApplication, record: OGCRecord) -> None:
+    """Populate keywords and group complete defined terms by their scheme."""
     record.keywords = []
     record.themes = []
     themes: dict[AnyUrl, Theme] = {}
 
     if metadata.keywords:
         for raw_keyword in (
-            metadata.keywords
-            if isinstance(metadata.keywords, list)
-            else [metadata.keywords]
+            metadata.keywords if isinstance(metadata.keywords, list) else [metadata.keywords]
         ):
             if isinstance(raw_keyword, str):
                 record.keywords.append(raw_keyword)
@@ -107,12 +106,11 @@ def _add_kw_themes(metadata: SoftwareApplication, record: OGCRecord):
                     )
                 )
 
-        if themes:
-            for theme in themes.values():
-                record.themes.append(theme)
+        record.themes.extend(themes.values())
 
 
-def _add_help_links(metadata: SoftwareApplication, record: OGCRecord):
+def _add_help_links(metadata: SoftwareApplication, record: OGCRecord) -> None:
+    """Add help links for software documentation with a URL."""
     for creative_work in (
         metadata.software_help
         if isinstance(metadata.software_help, list)
@@ -120,9 +118,7 @@ def _add_help_links(metadata: SoftwareApplication, record: OGCRecord):
     ):
         if creative_work.url:
             record.add_link(
-                Link(
-                    rel="help", target=str(creative_work.url), title=creative_work.name
-                )
+                Link(rel="help", target=str(creative_work.url), title=creative_work.name)
             )
 
 
@@ -134,9 +130,7 @@ def _to_contact(author: Person | AuthorRole) -> Contact:
         author = author.author
 
     affiliations = (
-        author.affiliation
-        if isinstance(author.affiliation, list)
-        else [author.affiliation]
+        author.affiliation if isinstance(author.affiliation, list) else [author.affiliation]
     )
 
     def _to_contact_detail(email: str) -> ContactDetail:
@@ -163,9 +157,7 @@ def _to_contact(author: Person | AuthorRole) -> Contact:
     description="CWL to OGC API - Records Transpiler-Mate Plugin.",
     options_model=CWL2OGCAPIRecordsOptions,
 )
-def cwl2ogcrecords(
-    context: TranspilerContext, options: CWL2OGCAPIRecordsOptions
-) -> None:
+def cwl2ogcrecords(context: TranspilerContext, options: CWL2OGCAPIRecordsOptions) -> None:
     """CWL to OGC API - Records Transpiler-Mate Plugin."""
     logger.info("Converting input CWL to OGC API - Records...")
 
@@ -175,19 +167,13 @@ def cwl2ogcrecords(
     record.created = _to_datetime(context.metadata.date_created)
     record.updated = _to_datetime(datetime.now())
     record.title = context.metadata.name
-    record.description = (
-        context.metadata.description if context.metadata.description else None
-    )
+    record.description = context.metadata.description if context.metadata.description else None
     record.language = __DEFAULT_LANGUAGE__
     record.resource_languages = [__DEFAULT_LANGUAGE__]
 
     record.license = ": ".join(
         [
-            (
-                str(license.identifier)
-                if isinstance(license, CreativeWork)
-                else str(license)
-            )
+            (str(license.identifier) if isinstance(license, CreativeWork) else str(license))
             for license in (
                 context.metadata.license
                 if isinstance(context.metadata.license, list)
@@ -220,11 +206,9 @@ def cwl2ogcrecords(
                 record.to_dict(include_self_link=False),
                 output_stream,
                 indent=2,
-                )
+            )
 
-        logger.success(
-            f"CodeMeta metadata successfully serialized to {options.output.absolute()}"
-        )
+        logger.success(f"CodeMeta metadata successfully serialized to {options.output.absolute()}")
     except Exception as e:
         raise PluginExecutionError(
             f"An error occurred when serializing to {options.output.absolute()}, see nested exception"
