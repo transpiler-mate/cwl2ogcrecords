@@ -25,6 +25,15 @@ from typing import TYPE_CHECKING, Annotated
 from loguru import logger
 from pydantic import AnyUrl, BaseModel, ConfigDict, Field
 from pystac import Link
+from pystac.extensions.ogc_record import (
+    Contact,
+    ContactDetail,
+    Language,
+    OGCRecord,
+    OrganizationContact,
+    Theme,
+    ThemeConcept,
+)
 from transpiler_mate.api import (
     AuthorRole,
     CreativeWork,
@@ -33,16 +42,6 @@ from transpiler_mate.api import (
     PluginExecutionError,
     SoftwareApplication,
     transpiler_plugin,
-)
-
-from .ogc_record import (
-    Contact,
-    ContactDetail,
-    Language,
-    OGCRecord,
-    OrganizationContact,
-    Theme,
-    ThemeConcept,
 )
 
 if TYPE_CHECKING:
@@ -165,7 +164,7 @@ def cwl2ogcrecords(context: TranspilerContext, options: CWL2OGCAPIRecordsOptions
         id=context.process_id if context.process_id else f"urn:uuid:{uuid.uuid4()}",
     )
     record.created = _to_datetime(context.metadata.date_created)
-    record.updated = _to_datetime(datetime.now())
+    record.updated = _to_datetime(datetime.now(timezone.utc))
     record.title = context.metadata.name
     record.description = context.metadata.description if context.metadata.description else None
     record.language = __DEFAULT_LANGUAGE__
