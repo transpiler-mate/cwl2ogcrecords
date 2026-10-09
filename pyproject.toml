@@ -49,7 +49,7 @@ classifiers = [
 dependencies = [
   "transpiler-mate-api>=1.0.0",
   "loguru==0.7.3",
-  "pystac-ext-osc>=1.0.0"
+  "pystac-ext-ogc-record>=1.0.0"
 ]
 
 # ---------------------------------------------------------------------------

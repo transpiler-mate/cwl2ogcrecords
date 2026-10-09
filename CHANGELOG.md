@@ -39,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.2] - 2026-10-07
 
-* Custom _OGC API - Record_ replaced by the `pystac-ext-osc` extension.
+* Custom _OGC API - Record_ replaced by the `pystac-ext-ogc-record` extension.
 
 ## [0.1.1] - 2026-09-27
 
