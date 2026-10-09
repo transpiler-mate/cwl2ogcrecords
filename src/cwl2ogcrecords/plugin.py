@@ -62,12 +62,12 @@ class CWL2OGCAPIRecordsOptions(BaseModel):
     ]
 
 
-def _to_datetime(value: date | datetime) -> str:
+def _to_datetime(value: date | datetime) -> datetime:
     if isinstance(value, datetime):
         if value.tzinfo:
-            return value.isoformat()
-        return value.replace(tzinfo=timezone.utc).isoformat()
-    return datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc).isoformat()
+            return value
+        return value.replace(tzinfo=timezone.utc)
+    return datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc)
 
 
 def _add_kw_themes(metadata: SoftwareApplication, record: OGCRecord) -> None:

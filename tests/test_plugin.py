@@ -102,7 +102,8 @@ def test_serializes_metadata_and_creates_parent_directories(
     context: TranspilerContext, tmp_path: Path
 ) -> None:
     before = context.metadata.model_dump()
-    started = datetime.now(timezone.utc)
+    # Serialized timestamps have whole-second precision.
+    started = datetime.now(timezone.utc).replace(microsecond=0)
     document = _execute(context, tmp_path / "nested" / "output" / "record.json")
     finished = datetime.now(timezone.utc)
     assert document["type"] == "Feature"
@@ -113,8 +114,11 @@ def test_serializes_metadata_and_creates_parent_directories(
     assert isinstance(properties, dict)
     assert properties["title"] == "Elevation workflow"
     assert properties["description"] == "Compute terrain elevation."
-    assert properties["created"] == "2026-01-02T00:00:00+00:00"
-    assert started <= datetime.fromisoformat(properties["updated"]) <= finished
+    assert properties["created"] == "2026-01-02T00:00:00Z"
+    updated = properties["updated"]
+    assert isinstance(updated, str)
+    # Python 3.10 requires an explicit UTC offset instead of the Z suffix.
+    assert started <= datetime.fromisoformat(updated.replace("Z", "+00:00")) <= finished
     assert properties["language"] == {"code": "en-US", "name": "English (United States)"}
     assert properties["resourceLanguages"] == [properties["language"]]
     assert properties["license"] == "https://spdx.org/licenses/Apache-2.0"
@@ -152,11 +156,11 @@ def test_generates_unique_uuid_when_process_id_is_missing(
 @pytest.mark.parametrize(
     ("created", "expected"),
     [
-        (date(2026, 1, 2), "2026-01-02T00:00:00+00:00"),
-        (datetime(2026, 1, 2, 3, 4, 5), "2026-01-02T03:04:05+00:00"),
+        (date(2026, 1, 2), "2026-01-02T00:00:00Z"),
+        (datetime(2026, 1, 2, 3, 4, 5), "2026-01-02T03:04:05Z"),
         (
             datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone(timedelta(hours=2))),
-            "2026-01-02T03:04:05+02:00",
+            "2026-01-02T01:04:05Z",
         ),
     ],
 )
