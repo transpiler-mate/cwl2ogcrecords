@@ -34,6 +34,7 @@ nav:
   - Reference:
       - Overview: reference/index.md
       - Plugin: reference/plugin.md
+      - CWL and CLI crosswalk: reference/crosswalk.md
       - API: reference/api.md
   - Explanation:
       - Overview: explanation/index.md
