@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://Transpiler-Mate.github.io/cwl2ogcrecords/reference/crosswalk/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>CWL and CLI crosswalk - CWL to OGC API - Records</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../assets/_mkdocstrings.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "CWL and CLI crosswalk";
+        var mkdocs_page_input_path = "reference/crosswalk.md";
+        var mkdocs_page_url = "/cwl2ogcrecords/reference/crosswalk/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> CWL to OGC API - Records
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Tutorials</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../tutorials/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../tutorials/first-steps/">First steps</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">How-to guides</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../how-to/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../how-to/install/">Install</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../how-to/use-cli/">Use the CLI</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Reference</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../plugin/">Plugin</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">CWL and CLI crosswalk</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#cwl-metadata-and-source">CWL metadata and source</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#contacts">Contacts</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#themes">Themes</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#cli-and-python-options">CLI and Python options</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#vcs-inference-from-one-repository-url">VCS inference from one repository URL</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#generated-values-and-extension-declarations">Generated values and extension declarations</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#example-cli-mapping">Example CLI mapping</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../api/">API</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Explanation</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../explanation/">Overview</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../explanation/architecture/">Architecture</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">CWL to OGC API - Records</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Reference</li>
+      <li class="breadcrumb-item active">CWL and CLI crosswalk</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Transpiler-Mate/cwl2ogcrecords/edit/main/docs/reference/crosswalk.md">Edit on cwl2ogcrecords</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <!--
+Copyright 2026 Terradue
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+<h1 id="cwl-and-cli-to-ogc-record-crosswalk">CWL and CLI to OGC Record crosswalk<a class="headerlink" href="#cwl-and-cli-to-ogc-record-crosswalk" title="Permanent link">&para;</a></h1>
+<p>This crosswalk describes <code>cwl2ogcrecords</code> <strong>0.2.0</strong>, including Application,
+Version, Scientific Citation, and VCS v0.1.0 enrichment.</p>
+<p>The host resolves the CWL document into <code>TranspilerContext</code> and
+<code>SoftwareApplication</code> metadata before calling the plugin. The CWL column below
+uses <code>s:</code> for <code>https://schema.org/</code>, declared in <code>$namespaces</code>. Prefix names
+can differ; the expanded metadata names must match the host's model. The plugin
+consumes the resolved metadata, rather than reading CWL keys directly.
+CWL <code>label</code> and <code>doc</code> are not mapped directly by this plugin; provide the
+corresponding software metadata.</p>
+<p>Paths refer to serialized JSON. <code>[]</code> means an array entry, and
+<code>links[rel=application]</code> means the link whose <code>rel</code> is <code>application</code>.
+Namespaced keys such as <code>sci:doi</code> are literal JSON keys.</p>
+<h2 id="cwl-metadata-and-source">CWL metadata and source<a class="headerlink" href="#cwl-metadata-and-source" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>CWL / source input</th>
+<th>Resolved Python field</th>
+<th>OGC Record output</th>
+<th>Transformation or condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Process fragment in <code>SOURCE</code>, such as <code>workflow.cwl#main</code></td>
+<td><code>context.process_id</code></td>
+<td><code>id</code>; <code>links[rel=application]["application:entrypoint"]</code></td>
+<td>The ID is copied when nonempty. Otherwise <code>id</code> is a generated <code>urn:uuid:…</code>; no entrypoint is emitted.</td>
+</tr>
+<tr>
+<td>Positional <code>SOURCE</code></td>
+<td><code>context.source</code></td>
+<td><code>links[rel=application].href</code></td>
+<td>HTTP(S) sources only; <code>--application-url</code> overrides this value. Local paths and other schemes are not published as application links.</td>
+</tr>
+<tr>
+<td><code>s:name</code></td>
+<td><code>metadata.name</code></td>
+<td><code>properties.title</code></td>
+<td>Copied.</td>
+</tr>
+<tr>
+<td><code>s:description</code></td>
+<td><code>metadata.description</code></td>
+<td><code>properties.description</code></td>
+<td>Omitted when empty or absent.</td>
+</tr>
+<tr>
+<td><code>s:dateCreated</code></td>
+<td><code>metadata.date_created</code></td>
+<td><code>properties.created</code></td>
+<td>UTC datetime with whole-second precision. Date-only values become midnight UTC; naive datetimes are treated as UTC.</td>
+</tr>
+<tr>
+<td><code>s:license</code></td>
+<td><code>metadata.license</code></td>
+<td><code>properties.license</code></td>
+<td>A scalar or list; strings are retained, <code>CreativeWork</code> values use their identifiers. Multiple values are joined with <code>:</code>.</td>
+</tr>
+<tr>
+<td><code>s:softwareVersion</code></td>
+<td><code>metadata.software_version</code></td>
+<td><code>properties.version</code></td>
+<td>Whitespace is stripped; blank versions are omitted.</td>
+</tr>
+<tr>
+<td><code>s:identifier</code> containing a DOI</td>
+<td><code>metadata.identifier</code></td>
+<td><code>properties["sci:doi"]</code>; <code>links[rel=cite-as].href</code></td>
+<td>Normalized to a bare DOI and a DOI resolver link. Generic identifiers are not mapped to these fields.</td>
+</tr>
+<tr>
+<td>String <code>s:keywords</code></td>
+<td><code>metadata.keywords</code></td>
+<td><code>properties.keywords[]</code></td>
+<td>A scalar or list; string entries are copied.</td>
+</tr>
+<tr>
+<td>Structured <code>s:keywords</code> (<code>DefinedTerm</code>)</td>
+<td><code>metadata.keywords</code></td>
+<td><code>properties.themes[]</code></td>
+<td>Grouped by scheme; see the theme crosswalk below.</td>
+</tr>
+<tr>
+<td><code>s:author</code></td>
+<td><code>metadata.author</code></td>
+<td><code>properties.contacts[]</code></td>
+<td>One contact per person or author role; see the contact crosswalk below.</td>
+</tr>
+<tr>
+<td><code>s:softwareHelp.s:url</code></td>
+<td><code>metadata.software_help[].url</code></td>
+<td><code>links[rel=help].href</code></td>
+<td>A scalar or list of help objects; objects without a URL are skipped.</td>
+</tr>
+<tr>
+<td><code>s:softwareHelp.s:name</code></td>
+<td><code>metadata.software_help[].name</code></td>
+<td><code>links[rel=help].title</code></td>
+<td>Used on the corresponding help link.</td>
+</tr>
+</tbody>
+</table>
+<p>The plugin initializes <code>keywords</code> and <code>themes</code> to empty lists when no entries
+qualify. It expects usable creation-date, license, author, and software-help
+metadata; see <a href="../plugin/#current-boundaries">input boundaries</a>.</p>
+<h3 id="contacts">Contacts<a class="headerlink" href="#contacts" title="Permanent link">&para;</a></h3>
+<p>For a <code>Person</code>, the paths below are relative to <code>s:author</code>. For an <code>AuthorRole</code>,
+use the nested person in <code>s:author.s:author</code> and the role's <code>s:roleName</code>.</p>
+<table>
+<thead>
+<tr>
+<th>CWL metadata within the person or role</th>
+<th>OGC Record contact field</th>
+<th>Transformation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Person <code>s:identifier</code></td>
+<td><code>properties.contacts[].identifier</code></td>
+<td>Converted to a string.</td>
+</tr>
+<tr>
+<td>Person <code>s:familyName</code>, <code>s:givenName</code></td>
+<td><code>properties.contacts[].name</code></td>
+<td>Formatted as <code>familyName, givenName</code>.</td>
+</tr>
+<tr>
+<td>Person <code>s:affiliation.s:name</code></td>
+<td><code>properties.contacts[].organization</code></td>
+<td>Uses the first affiliation when a list is supplied.</td>
+</tr>
+<tr>
+<td>Person <code>s:email</code></td>
+<td><code>properties.contacts[].emails[].value</code></td>
+<td>One email entry per value.</td>
+</tr>
+<tr>
+<td>Role <code>s:roleName</code></td>
+<td><code>properties.contacts[].position</code></td>
+<td>Copied for an <code>AuthorRole</code>; plain people receive <code>N/A</code>. This does not populate contact <code>roles</code>.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="themes">Themes<a class="headerlink" href="#themes" title="Permanent link">&para;</a></h3>
+<p>These paths are relative to each <code>DefinedTerm</code> in <code>s:keywords</code>.</p>
+<table>
+<thead>
+<tr>
+<th>CWL metadata</th>
+<th>OGC Record theme field</th>
+<th>Transformation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>s:inDefinedTermSet</code></td>
+<td><code>properties.themes[].scheme</code></td>
+<td>Scheme URL used to group terms.</td>
+</tr>
+<tr>
+<td><code>s:termCode</code></td>
+<td><code>properties.themes[].concepts[].id</code></td>
+<td>Both scheme and term code must be nonempty to include the term.</td>
+</tr>
+<tr>
+<td><code>s:name</code></td>
+<td><code>properties.themes[].concepts[].title</code></td>
+<td>Included when nonempty.</td>
+</tr>
+<tr>
+<td><code>s:description</code></td>
+<td><code>properties.themes[].concepts[].description</code></td>
+<td>Included when nonempty.</td>
+</tr>
+</tbody>
+</table>
+<p>The scheme URI is not emitted as an individual concept URL.</p>
+<h2 id="cli-and-python-options">CLI and Python options<a class="headerlink" href="#cli-and-python-options" title="Permanent link">&para;</a></h2>
+<p>All enrichment options below are available in <strong>0.2.0</strong>. Optional scalar
+settings default to <code>None</code>; <code>publication_dois</code> defaults to an empty list.
+CLI names use hyphens, while Python option names use underscores.</p>
+<table>
+<thead>
+<tr>
+<th>CLI option</th>
+<th>Python option</th>
+<th>OGC Record output or effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--output</code></td>
+<td><code>output</code></td>
+<td>Destination file, default <code>ogc-record.json</code>. Creates parent directories and overwrites the file. Does not set a record field or self link.</td>
+</tr>
+<tr>
+<td><code>--application-url</code></td>
+<td><code>application_url</code></td>
+<td>HTTP(S) override for <code>links[rel=application].href</code>, including when <code>SOURCE</code> is local.</td>
+</tr>
+<tr>
+<td><code>--repository-url</code></td>
+<td><code>repository_url</code></td>
+<td><code>links[rel=vcs].href</code>, plus inferred VCS fields on that link and in <code>properties</code>. Accepts one string; see below.</td>
+</tr>
+<tr>
+<td><code>--manifest-url</code></td>
+<td><code>manifest_url</code></td>
+<td>HTTP(S) <code>links[rel=manifest].href</code>.</td>
+</tr>
+<tr>
+<td><code>--application-input-url</code></td>
+<td><code>application_input_url</code></td>
+<td>HTTP(S) <code>links[rel=application-input].href</code>. This links to example parameters; it does not copy their contents.</td>
+</tr>
+<tr>
+<td><code>--version-history-url</code></td>
+<td><code>version_history_url</code></td>
+<td>HTTP(S) <code>links[rel=version-history].href</code>; declares the Version extension even when software version is blank.</td>
+</tr>
+<tr>
+<td><code>--workflow-citation</code></td>
+<td><code>workflow_citation</code></td>
+<td><code>properties["sci:citation"]</code>; whitespace is trimmed and blank values are rejected. Describes the workflow itself.</td>
+</tr>
+<tr>
+<td><code>--publication-dois</code> (repeatable)</td>
+<td><code>publication_dois</code></td>
+<td><code>properties["sci:publications"][]</code> entries with <code>doi</code> and <code>citation: null</code>, plus <code>related</code> DOI links. Normalized duplicates are removed.</td>
+</tr>
+</tbody>
+</table>
+<p>DOIs accept bare names, <code>doi:</code> identifiers, and HTTP(S) <code>doi.org</code> or
+<code>dx.doi.org</code> resolver URLs. Only the workflow DOI produces <code>cite-as</code>;
+publication DOIs produce <code>related</code> links. DOI validation checks syntax, not
+registration. There are no <code>workflow_doi</code>, <code>application_entrypoint</code>, or
+<code>project_id</code> options.</p>
+<h3 id="vcs-inference-from-one-repository-url">VCS inference from one repository URL<a class="headerlink" href="#vcs-inference-from-one-repository-url" title="Permanent link">&para;</a></h3>
+<p>Each recognized Git repository produces <code>vcs:type="git"</code>. The following
+additional fields are written to <strong>both</strong> <code>links[rel=vcs]</code> and <code>properties</code>.
+The supplied URL is retained as the link target after trimming whitespace.</p>
+<table>
+<thead>
+<tr>
+<th>URL form</th>
+<th>Inferred field</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clone URL or repository landing page</td>
+<td>No reference field</td>
+<td><code>git@github.com:team/workflow.git</code></td>
+</tr>
+<tr>
+<td>GitHub <code>/tree/…</code> or GitLab <code>/-/tree/…</code></td>
+<td><code>vcs:branch</code></td>
+<td><code>/tree/main</code> → <code>main</code></td>
+</tr>
+<tr>
+<td>GitHub <code>/blob/…</code> or GitLab <code>/-/blob/…</code></td>
+<td><code>vcs:branch</code> from the first ref segment</td>
+<td><code>/blob/main/workflow.cwl</code> → <code>main</code></td>
+</tr>
+<tr>
+<td>GitHub <code>/releases/tag/…</code>; GitLab <code>/-/tags/…</code> or <code>/-/releases/…</code></td>
+<td><code>vcs:tag</code></td>
+<td><code>/releases/tag/v1.2.0</code> → <code>v1.2.0</code></td>
+</tr>
+<tr>
+<td>Explicit <code>refs/tags/…</code> tree reference</td>
+<td><code>vcs:tag</code></td>
+<td><code>/tree/refs/tags/v1.2.0</code> → <code>v1.2.0</code></td>
+</tr>
+<tr>
+<td>GitHub <code>/commit/…</code> or GitLab <code>/-/commit/…</code></td>
+<td><code>vcs:revision</code></td>
+<td><code>/commit/abc1234</code> → <code>abc1234</code></td>
+</tr>
+<tr>
+<td>Full 40- or 64-character hexadecimal tree/blob ref</td>
+<td><code>vcs:revision</code></td>
+<td>Full commit hash retained unchanged.</td>
+</tr>
+</tbody>
+</table>
+<p>Inference is offline. Plain clone URLs cannot supply a default branch or current
+revision, and ordinary tree/blob refs are treated as branches unless they have
+an explicit tag form or full hash. Tree URLs must not include a subdirectory;
+encode slashes within blob ref names as <code>%2F</code>. See
+<a href="../plugin/#repository-and-vcs-metadata">VCS metadata</a> for validation rules and
+supported forms. Unrecognized but valid HTTP(S) landing pages produce only the
+plain <code>vcs</code> link.</p>
+<h2 id="generated-values-and-extension-declarations">Generated values and extension declarations<a class="headerlink" href="#generated-values-and-extension-declarations" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Output</th>
+<th>Source or condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>Always <code>Feature</code>.</td>
+</tr>
+<tr>
+<td><code>geometry</code></td>
+<td>Always <code>null</code>.</td>
+</tr>
+<tr>
+<td><code>properties.updated</code></td>
+<td>Conversion time, serialized in UTC.</td>
+</tr>
+<tr>
+<td><code>properties.language</code></td>
+<td>Fixed <code>{"code": "en-US", "name": "English (United States)"}</code>.</td>
+</tr>
+<tr>
+<td><code>properties.resourceLanguages</code></td>
+<td>A list containing that same language object.</td>
+</tr>
+<tr>
+<td><code>links[rel=application].type</code></td>
+<td><code>application/cwl</code>, for both YAML and JSON CWL.</td>
+</tr>
+<tr>
+<td><code>links[rel=application]["application:container"]</code></td>
+<td><code>Common Workflow Language</code>; describes the document format, not a Docker container.</td>
+</tr>
+<tr>
+<td><code>stac_extensions</code> — Application</td>
+<td>Declared when an application link is emitted.</td>
+</tr>
+<tr>
+<td><code>stac_extensions</code> — Version</td>
+<td>Declared for a nonblank software version or an explicit version-history URL.</td>
+</tr>
+<tr>
+<td><code>stac_extensions</code> — Scientific</td>
+<td>Declared for a workflow DOI, citation, or publication metadata.</td>
+</tr>
+<tr>
+<td><code>stac_extensions</code> — VCS v0.1.0</td>
+<td>Declared when Git metadata is inferred from <code>repository_url</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>These extension declarations do not populate OGC <code>conformsTo</code>. The converter
+does not derive geometry, temporal extent, processing provenance, output
+datasets, checksums, or Docker image versions from CWL inputs, outputs,
+requirements, or workflow steps. It emits no STAC <code>datetime</code> or <code>stac_version</code>
+and performs no complete output-schema validation before writing.</p>
+<h2 id="example-cli-mapping">Example CLI mapping<a class="headerlink" href="#example-cli-mapping" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>transpiler-mate<span class="w"> </span>cwl2ogcrecords<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output<span class="w"> </span>build/record.json<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--application-url<span class="w"> </span>https://example.org/workflow.cwl<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--repository-url<span class="w"> </span>https://github.com/team/workflow/releases/tag/v1.2.0<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--workflow-citation<span class="w"> </span><span class="s1">'Example Team (2026). Example Workflow.'</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--publication-dois<span class="w"> </span><span class="m">10</span>.5678/example-paper<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="s1">'workflow.cwl#main'</span>
+</code></pre></div>
+<p>With the host-resolved process ID <code>main</code>, this sets the record ID and application
+entrypoint to <code>main</code>. The application link uses the explicit public URL, the
+repository link and record properties carry <code>vcs:type="git"</code> and
+<code>vcs:tag="v1.2.0"</code>, and the citation and related paper populate the Scientific
+fields. The software version still comes from <code>s:softwareVersion</code>; it is not
+inferred from the repository tag. The DOI and URLs here are illustrative.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../plugin/" class="btn btn-neutral float-left" title="Plugin"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../api/" class="btn btn-neutral float-right" title="API">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Transpiler-Mate/cwl2ogcrecords" class="fa fa-code-fork" style="color: #fcfcfc"> cwl2ogcrecords</a>
+        </span>
+    
+    
+      <span><a href="../plugin/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../api/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
