@@ -17,7 +17,8 @@ limitations under the License.
 # Install
 
 Python 3.10 or later is required. The package depends on `transpiler-mate-api`,
-Loguru, and `pystac-ext-ogc-record` (at least 1.1.0).
+Loguru, `pystac-ext-ogc-record` (at least 1.1.0), `giturlparse` (at least
+0.15.0), and `pystac-ext-vcs` (at least 0.1.0).
 
 ## Use the published package
 
@@ -50,6 +51,18 @@ git clone https://github.com/Transpiler-Mate/cwl2ogcrecords
 cd cwl2ogcrecords
 python -m pip install -e .
 ```
+
+### Use the local VCS extension
+
+To develop against a local `pystac-ext-vcs` checkout, install it with the plugin:
+
+```bash
+python -m pip install /path/to/pystac-ext-vcs -e .
+```
+
+Install the local extension into each Hatch environment before running checks
+if the extension is not yet available from your package index. Package metadata
+uses the portable `pystac-ext-vcs>=0.1.0` requirement.
 
 ## Preview documentation
 

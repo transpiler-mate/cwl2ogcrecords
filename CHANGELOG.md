@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add VCS v0.1.0 metadata with `pystac-ext-vcs` and `giturlparse`, reusing the single `repository_url` string for Git remotes, branches, tags, and revisions on links and record properties.
 - Enrich workflow records with Application links, software version, and optional scientific citations and publication DOIs.
 - Add explicit public resource and citation options without inventing execution provenance.
 

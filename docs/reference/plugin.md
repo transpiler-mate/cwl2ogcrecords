@@ -97,7 +97,7 @@ Additional optional plugin settings:
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `application_url` | `None` | Public HTTP(S) CWL URL overriding the context source |
-| `repository_url` | `None` | HTTP(S) source repository, linked with `vcs` |
+| `repository_url` | `None` | Repository URL or Git remote string; adds a `vcs` link and VCS v0.1.0 metadata |
 | `manifest_url` | `None` | HTTP(S) CodeMeta/dependency manifest, linked with `manifest` |
 | `application_input_url` | `None` | HTTP(S) example parameter file, linked with `application-input` |
 | `version_history_url` | `None` | HTTP(S) release history, linked with `version-history` |
@@ -150,8 +150,8 @@ the `pystac-ext-ogc-record` dependency.
 
 Extension identifiers are added to the foreign `stac_extensions` member only
 when the corresponding extension content is emitted. Application is declared
-when an application link carries its namespaced fields; standalone `vcs` or
-`manifest` relation links do not require an extension declaration. Version is
+when an application link carries its namespaced fields; `manifest` relation links do not require an extension declaration. VCS is
+declared when a repository link carries VCS fields. Version is
 also declared when a version-history link is explicitly supplied. Scientific
 is declared only when DOI, citation, or publication metadata is present.
 
@@ -169,3 +169,48 @@ Specifications:
 - [Application](https://github.com/stac-extensions/application)
 - [Versioning Indicators](https://github.com/stac-extensions/version)
 - [Scientific Citation](https://github.com/stac-extensions/scientific)
+
+## Repository and VCS metadata
+
+!!! warning "Available since 0.2.0"
+
+    Pass a single `repository_url` string to add VCS metadata. No separate
+    branch, revision, or tag options are needed.
+
+The plugin uses `giturlparse` and `pystac-ext-vcs` to implement the tagged
+[VCS v0.1.0 specification](https://github.com/stac-extensions/vcs/tree/v0.1.0).
+It retains the supplied URL on one `rel="vcs"` link and adds `vcs:type="git"`
+plus any inferred reference fields to both the link and record properties.
+It declares `https://stac-extensions.github.io/vcs/v0.1.0/schema.json` once in
+`stac_extensions`. Exact revisions use `vcs:revision`, as defined in v0.1.0.
+
+| Example `repository_url` | Additional inferred fields |
+| --- | --- |
+| `https://github.com/team/workflow` | None |
+| `git@github.com:team/workflow.git` | None |
+| `ssh://git@gitlab.com/team/workflow.git` | None |
+| `https://github.com/team/workflow/tree/main` | `vcs:branch="main"` |
+| `https://gitlab.com/team/workflow/-/tree/feature/topic` | `vcs:branch="feature/topic"` |
+| `https://github.com/team/workflow/blob/main/workflow.cwl` | `vcs:branch="main"` |
+| `https://github.com/team/workflow/releases/tag/v1.2.0` | `vcs:tag="v1.2.0"` |
+| `https://gitlab.com/team/workflow/-/tags/v1.2.0` | `vcs:tag="v1.2.0"` |
+| `https://github.com/team/workflow/commit/abc1234` | `vcs:revision="abc1234"` |
+
+GitLab `/-/releases/` and `/-/commit/` URLs also work, including self-hosted
+GitLab and nested groups. Tree/blob references containing a full 40- or
+64-character hexadecimal hash produce `vcs:revision`. Explicit `refs/tags/`
+tree references produce `vcs:tag`; `refs/heads/` is removed from branch names.
+
+Parsing is offline: it does not clone repositories, resolve default branches,
+verify refs, or derive tags from the workflow software version. An ordinary
+tree/blob ref is treated as a branch; the URL alone cannot distinguish a branch
+from a tag with the same name. Use a release/tag URL or explicit `refs/tags/`
+tree URL to identify a tag. Tree URLs must point to the ref itself, without a
+subdirectory. Blob URLs use the first segment after `blob` as the ref;
+percent-encode slashes within ref names, for example `feature%2Ftopic`.
+
+Leading and trailing whitespace is stripped. Local paths, malformed remotes,
+embedded HTTP credentials, query strings, and fragments are rejected during
+option validation. Existing public HTTP(S) landing-page URLs remain accepted;
+if `giturlparse` cannot identify a repository, only the plain link is emitted.
+Omitting `repository_url` emits no VCS link, properties, or schema declaration.
