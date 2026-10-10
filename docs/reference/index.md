@@ -17,6 +17,4 @@ limitations under the License.
 # Reference
 
 - [Plugin](plugin.md): options, metadata mapping, and input assumptions.
-- [Typed metadata](metadata.md): languages, themes, identifiers, formats, and contacts.
-- [OGCRecord](ogc_record.md): serialization, PySTAC compatibility, and validation.
 - [API](api.md): generated Python reference.

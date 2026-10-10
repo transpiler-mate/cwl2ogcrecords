@@ -16,73 +16,53 @@ limitations under the License.
 
 # Create your first record
 
-This tutorial creates a record directly in Python, adds typed metadata, and
-writes a GeoJSON file. Install the package first:
+This tutorial converts a CWL workflow through Transpiler-Mate and inspects the
+resulting OGC API - Records GeoJSON file.
+
+## Prepare the workflow
+
+[Install the plugin](../how-to/install.md) in the same environment as the
+Transpiler-Mate CLI. Use an existing CWL source with software metadata, named
+`workflow.cwl` in the commands below. Review the
+[metadata mapping and input assumptions](../reference/plugin.md#metadata-mapping),
+including creation date, license, author affiliations and email addresses, and
+software-help objects.
+
+## Convert the source
 
 ```bash
-python -m pip install cwl2ogcrecords
+transpiler-mate cwl2ogcrecords --output build/record.json workflow.cwl
 ```
 
-## Describe a resource
+The plugin creates the output directory if necessary and writes one record.
+Running the command again overwrites the file.
 
-Save the following as `create_record.py`:
-
-```python
-from cwl2ogcrecords.ogc_record import (
-    ContactDetail,
-    Language,
-    NamedFormat,
-    OGCRecord,
-    OrganizationContact,
-    Theme,
-    ThemeConcept,
-)
-
-record = OGCRecord(id="example-workflow")
-record.type = "software"
-record.title = "Example workflow"
-record.description = "A workflow for processing elevation data."
-record.language = Language(code="en", name="English")
-record.keywords = ["elevation"]
-record.themes = [
-    Theme(
-        scheme="https://example.org/topics",
-        concepts=[ThemeConcept(id="elevation", title="Elevation")],
-    )
-]
-record.formats = [NamedFormat(name="CWL", mediaType="application/cwl+yaml")]
-record.contacts = [
-    OrganizationContact(
-        organization="Example team",
-        emails=[ContactDetail(value="team@example.org", roles=["work"])],
-    )
-]
-record.license = "Apache-2.0"
-
-record.set_self_href("record.json")
-record.save_object()
-
-restored = OGCRecord.from_file("record.json")
-assert restored.title == "Example workflow"
-assert restored.to_dict()["type"] == "Feature"
-print(restored.to_dict()["properties"]["language"])
-```
-
-Run it:
+## Inspect the result
 
 ```bash
-python create_record.py
+python -m json.tool build/record.json
 ```
 
-The script writes `record.json` and prints `{'code': 'en', 'name': 'English'}`.
-The output has a top-level GeoJSON `type` of `Feature`; `record.type` is stored
-as `properties.type`. Geometry is `null`, and no date is required or invented.
-`save_object()` includes the self link set by `set_self_href()`.
+The JSON has top-level `type: "Feature"`, an identifier, `geometry: null`,
+`properties`, and `links`. The title, description, dates, contacts, keywords,
+and themes come from the resolved software metadata. No self link is emitted.
 
-The metadata constructors produce ordinary dictionaries. Their type annotations
-help static checking; they do not validate values at runtime.
+!!! warning "Available since 0.2.0"
+
+    Version 0.2.0 adds workflow application links, software versions, scientific
+    citations, and related publication DOIs. Earlier versions do not provide
+    these enrichment features.
+
+With version 0.2.0 or later, nonblank software version metadata becomes
+`properties.version`. A DOI-valued software identifier becomes `sci:doi` with a
+`cite-as` link. An HTTP(S) source produces an `application` link; a local source
+needs an explicit public `application_url` to produce that link.
+
+The [enrichment example](../reference/plugin.md#workflow-metadata-enrichment)
+shows how to supply public resource URLs, workflow citation text, and related
+publication DOIs through the plugin's Python options.
 
 ## Next steps
 
-Use the [CLI guide](../how-to/use-cli.md) to convert an existing CWL source, or
-consult [typed metadata](../reference/metadata.md) for the remaining fields.
+See the [CLI guide](../how-to/use-cli.md) for source conversion and the
+[plugin reference](../reference/plugin.md) for all supported settings.

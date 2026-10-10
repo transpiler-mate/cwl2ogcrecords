@@ -19,34 +19,47 @@ limitations under the License.
 ## Conversion flow
 
 The Transpiler-Mate host resolves the CWL source and provides software metadata
-in a `TranspilerContext`. The plugin maps that metadata to an `OGCRecord`, then
-serializes a single GeoJSON Feature to the configured output path. It does not
-serve an OGC API endpoint or publish the record to a catalog.
+in a `TranspilerContext`. The plugin maps that metadata to an OGC API - Records
+GeoJSON Feature and writes it to the configured output path. It does not serve
+an OGC API endpoint or publish the record to a catalog.
 
-`plugin.py` owns the metadata mapping, defaults, and file output. `ogc_record.py`
-owns the record representation, typed metadata dictionaries, and PySTAC adapter.
-The [plugin reference](../reference/plugin.md) describes conversion-specific
-assumptions; these are separate from the more permissive Python record model.
+`plugin.py` owns metadata mapping, plugin options, enrichment, and file output.
+Record serialization and metadata structures come from the external
+`pystac-ext-ogc-record` dependency. This package no longer embeds its own
+record implementation.
 
-## Why reuse PySTAC?
+The [plugin reference](../reference/plugin.md) documents conversion assumptions
+and the fields consumed from the resolved context.
 
-`OGCRecord` subclasses `pystac.Item` to reuse links, assets, and Item-oriented
-extension APIs. Its default serialization is an OGC Record Feature. It initializes
-`STACObject` directly to avoid requiring a STAC datetime for every record.
-This dependency on PySTAC internals requires review when upgrading PySTAC.
+## Workflow enrichment
 
-OGC temporal extent and STAC datetime fields remain independent. Explicit
-`to_stac_item()` export requires a real datetime or start/end interval; it does
-not invent dates. See [record behavior](../reference/ogc_record.md).
+!!! warning "Available since 0.2.0"
 
-## Why typed dictionaries?
+    Application links, version metadata, scientific citations, and related
+    publication DOIs are available in `cwl2ogcrecords` 0.2.0 and later.
 
-The record keeps metadata in a live properties dictionary. Typed dictionaries
-provide named structures without changing JSON serialization or introducing
-conversion wrappers. Shared structures are reused, including contact link
-fields and required identifier values. Union aliases express the schema's
-name-or-media-type and name-or-organization alternatives.
+Application links point to an HTTP(S) CWL source or an explicitly supplied
+public URL. The process ID identifies the entrypoint. Repository, manifest,
+example inputs, and version-history URLs are included only when supplied.
 
-Static typing and schema validation remain separate. The package preserves
-unknown metadata and exposes an explicit validator hook; it does not claim
-that every constructed dictionary satisfies the complete OGC schema.
+Version metadata comes from the software version. Scientific metadata separates
+the workflow's DOI and recommended citation from papers describing it. The
+workflow DOI receives a `cite-as` link; paper DOIs receive `related` links.
+Normalized duplicate paper DOIs are removed before serialization.
+
+The plugin uses PySTAC's Scientific and Version accessors. It writes publication
+entries separately because PySTAC's publications setter would also add
+`cite-as` links for papers. Application link fields are populated directly.
+Extension identifiers appear in `stac_extensions` only when relevant metadata
+is emitted; they are not OGC `conformsTo` declarations.
+
+## Output boundaries
+
+The record describes a reusable workflow definition. The plugin does not infer
+execution provenance, processing timestamps, output datasets, or Docker image
+versions. Geometry remains null, and no STAC version or datetime is invented.
+
+Plugin options are validated before conversion. The serialized record is not
+validated against the complete OGC or extension schemas; downstream consumers
+must perform any schema validation they require. File-writing failures are
+wrapped in `PluginExecutionError`, while earlier conversion errors propagate.

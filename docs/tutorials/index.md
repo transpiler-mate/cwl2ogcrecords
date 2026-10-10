@@ -16,4 +16,5 @@ limitations under the License.
 
 # Tutorials
 
-Start with [Create your first record](first-steps.md) to construct, save, and reload a record with typed metadata.
+Start with [Create your first record](first-steps.md) to convert a CWL workflow
+through Transpiler-Mate and inspect the resulting metadata.

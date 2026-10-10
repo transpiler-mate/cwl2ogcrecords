@@ -17,8 +17,15 @@ limitations under the License.
 # CWL to OGC API - Records
 
 `cwl2ogcrecords` is a Transpiler-Mate plugin that turns resolved CWL software
-metadata into an OGC API - Records GeoJSON Feature. It also provides an
-`OGCRecord` Python model with PySTAC link, asset, and extension support.
+metadata into an OGC API - Records GeoJSON Feature. Record serialization uses
+the `pystac-ext-ogc-record` dependency.
+
+!!! warning "Available since 0.2.0"
+
+    Workflow application links, software versions, scientific citations, and
+    related publication DOIs require `cwl2ogcrecords` 0.2.0 or later.
+    See [workflow metadata enrichment](reference/plugin.md#workflow-metadata-enrichment)
+    for the supported options and automatic metadata mappings.
 
 ## Get started
 
@@ -34,10 +41,8 @@ The conversion command expects a CWL source with software metadata. See the
 [plugin reference](reference/plugin.md) for the fields consumed and current
 input assumptions. The default output is `ogc-record.json`.
 
-- [First steps](tutorials/first-steps.md): create and save a record in Python.
+- [First steps](tutorials/first-steps.md): convert a CWL workflow and inspect its record.
 - [Install](how-to/install.md): prepare a CLI or development environment.
 - [Use the CLI](how-to/use-cli.md): convert a CWL source to a JSON file.
-- [Typed metadata](reference/metadata.md): construct languages, themes, formats,
-  external identifiers, and contacts.
-- [Record behavior](reference/ogc_record.md): serialization, extensions, and validation.
+- [Plugin reference](reference/plugin.md): options, metadata mapping, and enrichment.
 - [Architecture](explanation/architecture.md): understand the conversion boundaries.
