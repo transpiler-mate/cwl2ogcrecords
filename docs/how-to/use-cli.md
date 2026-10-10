@@ -54,3 +54,19 @@ objects. Incomplete author or help metadata can fail during conversion.
 
 The host CLI also exposes authentication options for source access. Use its
 `--help` output for the options available in your installed version.
+
+## Include a Git reference
+
+!!! warning "Available since 0.2.0"
+
+    Supply one `--repository-url` string to include VCS v0.1.0 metadata.
+
+```bash
+transpiler-mate cwl2ogcrecords --output build/record.json --repository-url 'https://github.com/team/workflow/tree/main' workflow.cwl
+```
+
+This adds a `vcs` link and record properties with `vcs:type="git"` and
+`vcs:branch="main"`. Use a release/tag URL for a tag or a commit URL for an
+exact revision. A clone URL such as `git@github.com:team/workflow.git` adds
+only the repository link and Git type. See [VCS metadata](../reference/plugin.md#repository-and-vcs-metadata)
+for supported URL forms and inference limits.

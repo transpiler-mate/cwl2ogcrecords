@@ -17,14 +17,37 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
+from urllib.parse import unquote, urlsplit
 
+from giturlparse import parse as parse_git_url
 from loguru import logger
-from pydantic import AnyUrl, BaseModel, ConfigDict, Field
+from pydantic import (
+    AfterValidator,
+    AnyHttpUrl,
+    AnyUrl,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+)
 from pystac import Link
+from pystac.extensions.ogc_record import (
+    Contact,
+    ContactDetail,
+    Language,
+    OGCRecord,
+    OrganizationContact,
+    Theme,
+    ThemeConcept,
+)
+from pystac.extensions.scientific import Publication, ScientificExtension, doi_to_url
+from pystac.extensions.vcs import VcsExtension
+from pystac.extensions.version import VersionExtension
 from transpiler_mate.api import (
     AuthorRole,
     CreativeWork,
@@ -35,16 +58,6 @@ from transpiler_mate.api import (
     transpiler_plugin,
 )
 
-from .ogc_record import (
-    Contact,
-    ContactDetail,
-    Language,
-    OGCRecord,
-    OrganizationContact,
-    Theme,
-    ThemeConcept,
-)
-
 if TYPE_CHECKING:
     from transpiler_mate.api import TranspilerContext
 
@@ -52,23 +65,194 @@ if TYPE_CHECKING:
 __DEFAULT_LANGUAGE__: Language = Language(code="en-US", name="English (United States)")
 
 
+APPLICATION_SCHEMA = "https://stac-extensions.github.io/application/v0.1.0/schema.json"
+
+
+def _normalize_doi(value: str) -> str:
+    """Normalize a DOI name, doi: identifier, or DOI resolver URL.
+
+    This checks syntax only; it does not resolve the DOI or prove registration.
+
+    Raises:
+        ValueError: If the value is not a supported DOI representation.
+    """
+    value = value.strip()
+    if value.lower().startswith("doi:"):
+        value = value[4:]
+    elif value.lower().startswith(("https://", "http://")):
+        parsed = urlsplit(value)
+        if parsed.netloc.lower() not in {"doi.org", "dx.doi.org"}:
+            raise ValueError("Expected a doi.org resolver URL")
+        if parsed.query or parsed.fragment:
+            raise ValueError("DOI resolver URLs must not have a query or fragment")
+        value = unquote(parsed.path.lstrip("/"))
+    if not re.fullmatch(r"10\.[0-9]{4,9}/[^\s]+", value):
+        raise ValueError("Expected a DOI name such as 10.1234/example")
+    return value
+
+
+DOI = Annotated[str, AfterValidator(_normalize_doi)]
+NonEmptyText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
+def _repository_reference(url: str) -> tuple[str, str, str]:
+    """Split recognized GitHub/GitLab browser URLs into repository, kind, and ref.
+
+    Tree URLs must name the ref itself, without a subdirectory. Blob URLs
+    use the first path segment as the ref; encode slashes within ref names.
+    """
+    parsed = urlsplit(url)
+    pattern = (
+        r"(/[^/]+/[^/]+)/(tree|blob|commit|releases/tag)/(.+)"
+        if parsed.hostname == "github.com"
+        else r"(.+)/-/(tree|blob|commit|tags|releases)/(.+)"
+    )
+    match = re.fullmatch(pattern, parsed.path)
+    if match is None:
+        return url, "", ""
+    repository, kind, reference = match.groups()
+    if kind == "blob":
+        reference = reference.split("/", 1)[0]
+    return parsed._replace(path=repository).geturl(), kind, unquote(reference)
+
+
+def _validate_repository_url(value: str) -> str:
+    """Accept public repository URLs and Git remotes, without embedded secrets.
+
+    Raises:
+        ValueError: If the URL is malformed, local, or contains credentials,
+            query parameters, or a fragment.
+    """
+    value = value.strip()
+    parsed = urlsplit(value)
+    if parsed.query or parsed.fragment or re.search(r"\s", value):
+        raise ValueError("Repository URLs must not contain whitespace, queries, or fragments")
+    if parsed.password or (parsed.scheme in {"http", "https"} and parsed.username):
+        raise ValueError("Repository URLs must not contain credentials")
+    repository, _, _ = _repository_reference(value)
+    if parse_git_url(repository).valid:
+        return value
+    # Preserve previously accepted public repository landing pages.
+    if parsed.scheme in {"http", "https"}:
+        return str(AnyHttpUrl(value))
+    raise ValueError("Expected a public repository URL or a Git remote")
+
+
 class CWL2OGCAPIRecordsOptions(BaseModel):
     """Options accepted by the CWL to OGC API - Records plugin."""
 
     model_config = ConfigDict(extra="forbid")
 
-    output: Annotated[
-        Path,
-        Field(default=Path("ogc-record.json"), description="The output file path"),
-    ]
+    output: Path = Field(default=Path("ogc-record.json"), description="The output file path")
+
+    application_url: AnyHttpUrl | None = Field(
+        default=None, description="Public CWL URL; defaults to an HTTP(S) context.source"
+    )
+    repository_url: Annotated[str, AfterValidator(_validate_repository_url)] | None = Field(
+        default=None,
+        description="Public repository URL or Git remote, optionally identifying a ref",
+    )
+    manifest_url: AnyHttpUrl | None = Field(
+        default=None, description="CodeMeta or dependency manifest URL"
+    )
+    application_input_url: AnyHttpUrl | None = Field(
+        default=None, description="Example input parameters URL"
+    )
+    version_history_url: AnyHttpUrl | None = Field(
+        default=None, description="Release history or changelog URL"
+    )
+    workflow_citation: NonEmptyText | None = Field(
+        default=None, description="Recommended citation for the workflow itself"
+    )
+    publication_dois: list[DOI] = Field(
+        default_factory=list, description="DOIs of papers describing the workflow"
+    )
 
 
-def _to_datetime(value: date | datetime) -> str:
+def _add_application_links(
+    context: TranspilerContext, options: CWL2OGCAPIRecordsOptions, record: OGCRecord
+) -> None:
+    """Attach explicitly known application resources without publishing local paths."""
+    source = options.application_url
+    if source is None and context.source.scheme in {"http", "https"}:
+        source = AnyHttpUrl(str(context.source))
+    if source is not None:
+        link = Link("application", str(source), media_type="application/cwl")
+        link.extra_fields["application:container"] = "Common Workflow Language"
+        entrypoint = context.process_id
+        if entrypoint:
+            link.extra_fields["application:entrypoint"] = entrypoint
+        record.add_link(link)
+    for relation, target in (
+        ("manifest", options.manifest_url),
+        ("application-input", options.application_input_url),
+    ):
+        if target is not None:
+            record.add_link(Link(relation, str(target)))
+    if source is not None:
+        # Application currently has no accessor in the project's PySTAC dependency.
+        record.stac_extensions.append(APPLICATION_SCHEMA)
+
+
+def _add_scientific_metadata(
+    metadata: SoftwareApplication, options: CWL2OGCAPIRecordsOptions, record: OGCRecord
+) -> None:
+    """Keep the workflow's own DOI distinct from papers describing it."""
+    doi = None
+    if metadata.identifier:
+        try:
+            doi = _normalize_doi(str(metadata.identifier))
+        except ValueError:
+            # A generic software identifier is valid metadata, but not a DOI.
+            logger.debug(f"Skipping non-DOI software identifier: {metadata.identifier}")
+
+    if not (doi or options.workflow_citation or options.publication_dois):
+        return
+
+    ScientificExtension.ext(record, add_if_missing=True).apply(
+        doi=doi, citation=options.workflow_citation
+    )
+
+    if options.publication_dois:
+        # PySTAC's publications setter adds cite-as links for papers too.
+        # Reserve cite-as for the workflow and link describing papers as related.
+        publication_dois = list(dict.fromkeys(options.publication_dois))
+        record.properties["sci:publications"] = [
+            Publication(doi=value, citation=None).to_dict() for value in publication_dois
+        ]
+        for publication_doi in publication_dois:
+            record.add_link(Link("related", doi_to_url(publication_doi)))
+
+
+def _add_workflow_extensions(
+    context: TranspilerContext, options: CWL2OGCAPIRecordsOptions, record: OGCRecord
+) -> None:
+    """Enrich a workflow definition without inventing execution provenance."""
+    _add_application_links(context, options, record)
+    version = context.metadata.software_version.strip()
+    if version or options.version_history_url:
+        version_extension = VersionExtension.ext(record, add_if_missing=True)
+        if version:
+            version_extension.version = version
+        if options.version_history_url:
+            record.add_link(Link("version-history", str(options.version_history_url)))
+
+
+def _theme_concept(term: DefinedTerm, code: str) -> ThemeConcept:
+    concept = ThemeConcept(id=code)
+    if term.name:
+        concept["title"] = term.name
+    if term.description:
+        concept["description"] = term.description
+    return concept
+
+
+def _to_datetime(value: date | datetime) -> datetime:
     if isinstance(value, datetime):
         if value.tzinfo:
-            return value.isoformat()
-        return value.replace(tzinfo=timezone.utc).isoformat()
-    return datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc).isoformat()
+            return value
+        return value.replace(tzinfo=timezone.utc)
+    return datetime.combine(value, datetime.min.time(), tzinfo=timezone.utc)
 
 
 def _add_kw_themes(metadata: SoftwareApplication, record: OGCRecord) -> None:
@@ -87,8 +271,6 @@ def _add_kw_themes(metadata: SoftwareApplication, record: OGCRecord) -> None:
                 isinstance(raw_keyword, DefinedTerm)
                 and raw_keyword.in_defined_term_set
                 and raw_keyword.term_code
-                and raw_keyword.name
-                and raw_keyword.description
             ):
                 scheme: AnyUrl = raw_keyword.in_defined_term_set
                 theme = themes.get(scheme)
@@ -97,14 +279,7 @@ def _add_kw_themes(metadata: SoftwareApplication, record: OGCRecord) -> None:
                     theme = Theme(scheme=str(scheme), concepts=[])
                     themes[scheme] = theme
 
-                theme["concepts"].append(
-                    ThemeConcept(
-                        id=raw_keyword.term_code,
-                        title=raw_keyword.name,
-                        description=raw_keyword.description,
-                        url=str(raw_keyword.in_defined_term_set),
-                    )
-                )
+                theme["concepts"].append(_theme_concept(raw_keyword, raw_keyword.term_code))
 
         record.themes.extend(themes.values())
 
@@ -152,6 +327,46 @@ def _to_contact(author: Person | AuthorRole) -> Contact:
     )
 
 
+def _add_vcs_metadata(options: CWL2OGCAPIRecordsOptions, record: OGCRecord) -> None:
+    """Add a repository link with VCS v0.1.0 metadata inferred without network access.
+
+    Plain remotes identify Git only. Browser tree/blob refs are treated as
+    branches unless they are full commit hashes or explicit ``refs/tags/``
+    refs. Release/tag and commit URLs identify tags and revisions explicitly.
+    """
+    if options.repository_url is None:
+        return
+
+    link = Link("vcs", options.repository_url)
+    record.add_link(link)
+
+    repository, kind, reference = _repository_reference(options.repository_url)
+    if not parse_git_url(repository).valid:
+        return
+
+    link_vcs_extension = VcsExtension.ext(link, add_if_missing=True)
+    link_vcs_extension.vcs_type = "git"
+    record_vcs_extension = VcsExtension.ext(record, add_if_missing=True)
+    record_vcs_extension.vcs_type = "git"
+    if not reference:
+        return
+    if kind in {"releases/tag", "tags", "releases"}:
+        link_vcs_extension.tag = reference
+    elif kind == "commit" or re.fullmatch(r"[0-9a-fA-F]{40}|[0-9a-fA-F]{64}", reference):
+        link_vcs_extension.revision = reference
+    elif reference.startswith("refs/tags/"):
+        link_vcs_extension.tag = reference.removeprefix("refs/tags/")
+    else:
+        link_vcs_extension.branch = reference.removeprefix("refs/heads/")
+
+    record_vcs_extension.apply(
+        vcs_type=link_vcs_extension.vcs_type,
+        branch=link_vcs_extension.branch,
+        revision=link_vcs_extension.revision,
+        tag=link_vcs_extension.tag,
+    )
+
+
 @transpiler_plugin(
     name="cwl2ogcrecords",
     description="CWL to OGC API - Records Transpiler-Mate Plugin.",
@@ -165,7 +380,7 @@ def cwl2ogcrecords(context: TranspilerContext, options: CWL2OGCAPIRecordsOptions
         id=context.process_id if context.process_id else f"urn:uuid:{uuid.uuid4()}",
     )
     record.created = _to_datetime(context.metadata.date_created)
-    record.updated = _to_datetime(datetime.now())
+    record.updated = _to_datetime(datetime.now(timezone.utc))
     record.title = context.metadata.name
     record.description = context.metadata.description if context.metadata.description else None
     record.language = __DEFAULT_LANGUAGE__
@@ -192,14 +407,16 @@ def cwl2ogcrecords(context: TranspilerContext, options: CWL2OGCAPIRecordsOptions
     )
 
     _add_kw_themes(context.metadata, record)
-
     _add_help_links(context.metadata, record)
+    _add_workflow_extensions(context, options, record)
+    _add_scientific_metadata(context.metadata, options, record)
+    _add_vcs_metadata(options, record)
 
     logger.success("Input CWL successfully converted to OGC API - Records!")
 
     try:
         options.output.parent.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Serializing CodeMeta metadata to {options.output.absolute()}")
+        logger.info(f"Serializing OGC API - Records metadata to {options.output.absolute()}")
 
         with options.output.open("w") as output_stream:
             json.dump(
@@ -208,7 +425,9 @@ def cwl2ogcrecords(context: TranspilerContext, options: CWL2OGCAPIRecordsOptions
                 indent=2,
             )
 
-        logger.success(f"CodeMeta metadata successfully serialized to {options.output.absolute()}")
+        logger.success(
+            f"OGC API - Records metadata successfully serialized to {options.output.absolute()}"
+        )
     except Exception as e:
         raise PluginExecutionError(
             f"An error occurred when serializing to {options.output.absolute()}, see nested exception"

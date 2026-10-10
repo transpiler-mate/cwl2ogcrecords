@@ -34,8 +34,6 @@ nav:
   - Reference:
       - Overview: reference/index.md
       - Plugin: reference/plugin.md
-      - Typed metadata: reference/metadata.md
-      - OGC API - Records implementation: reference/ogc_record.md
       - API: reference/api.md
   - Explanation:
       - Overview: explanation/index.md

@@ -23,19 +23,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-10
+
 ### Added
 
-### Changed
-
-### Deprecated
-
-### Removed
+- Add VCS v0.1.0 metadata with `pystac-ext-vcs` and `giturlparse`, reusing the single `repository_url` string for Git remotes, branches, tags, and revisions on links and record properties.
+- Enrich workflow records with Application links, software version, and optional scientific citations and publication DOIs.
+- Add explicit public resource and citation options without inventing execution provenance.
 
 ### Fixed
 
-### Security
+- Retain theme concepts without optional labels and stop treating a vocabulary URI as an individual concept URL.
 
-### Added
+## [0.1.2] - 2026-10-07
+
+* Custom _OGC API - Record_ replaced by the `pystac-ext-ogc-record` extension.
 
 ## [0.1.1] - 2026-09-27
 
@@ -49,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial project release.
 
-[Unreleased]: https://github.com/Transpiler-Mate/cwl2ogcrecords/compare/0.1.1...HEAD
-[0.1.1]: https://github.com/Transpiler-Mate/cwl2ogcrecords/compare/0.1.0...0.1.1
-[0.1.0]: https://github.com/Transpiler-Mate/cwl2ogcrecords/releases/tag/0.1.0
+[Unreleased]: https://github.com/transpiler-mate/cwl2ogcrecords/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/transpiler-mate/cwl2ogcrecords/compare/0.1.2...0.2.0
+[0.1.2]: https://github.com/transpiler-mate/cwl2ogcrecords/compare/0.1.1...0.1.2
+[0.1.1]: https://github.com/transpiler-mate/cwl2ogcrecords/compare/0.1.0...0.1.1
+[0.1.0]: https://github.com/transpiler-mate/cwl2ogcrecords/releases/tag/0.1.0

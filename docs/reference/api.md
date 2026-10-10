@@ -26,27 +26,5 @@ limitations under the License.
 
 ::: cwl2ogcrecords.plugin.CWL2OGCAPIRecordsOptions
 
-## Record model
-
-::: cwl2ogcrecords.ogc_record.OGCRecord
-
-## Metadata structures
-
-See [Typed metadata](metadata.md) for the field summary and union constructors.
-
-::: cwl2ogcrecords.ogc_record
-    options:
-      members:
-        - Language
-        - Theme
-        - ThemeConcept
-        - ExternalId
-        - NamedFormat
-        - MediaTypeFormat
-        - NamedContact
-        - OrganizationContact
-        - ContactDetail
-        - ContactAddress
-        - ContactLink
-        - ContactLogo
-      show_source: false
+See the [plugin reference](plugin.md#workflow-metadata-enrichment) for option
+semantics and the features available since 0.2.0.

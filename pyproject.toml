@@ -49,7 +49,9 @@ classifiers = [
 dependencies = [
   "transpiler-mate-api>=1.0.0",
   "loguru==0.7.3",
-  "pystac>1,<2"
+  "pystac-ext-ogc-record>=1.1.0", # 1.0.0 has datetime serialization bugs
+  "pystac-ext-vcs>=0.1.0",
+  "giturlparse>=0.15.0",
 ]
 
 # ---------------------------------------------------------------------------
@@ -81,6 +83,7 @@ path = "src/cwl2ogcrecords/__about__.py"
 include = [
   "/src",
   "/tests",
+  "/typings",
   "/docs",
   "/README.md",
   "/CHANGELOG.md",
@@ -129,8 +132,8 @@ exclude_lines = [
 skip-install = false
 dependencies = [
   "click>=8.4.2,<9",
-  "pytest>=8.4,<10",
-  "pytest-cov>=6.2,<8",
+  "pytest>=9.1.1,<10",
+  "pytest-cov>=7.1.0,<8",
 ]
 
 [tool.hatch.envs.test.scripts]
@@ -168,7 +171,7 @@ dependencies = [
   "ruff>=0.16.0",
   "bandit>=1.9.4",
   "click>=8.4.2,<9",
-  "pytest>=8.4,<10",
+  "pytest>=9.1.1,<10",
 ]
 
 # ---------------------------------------------------------------------------
@@ -243,6 +246,7 @@ max-statements = 40
 # ---------------------------------------------------------------------------
 
 [tool.mypy]
+mypy_path = "typings"
 
 # Strict typing is the default for new Terradue Python projects.
 strict = true
@@ -320,6 +324,6 @@ check = [
 [project.optional-dependencies]
 test = [
   "click>=8.4.2,<9",
-  "pytest>=8.4,<10",
-  "pytest-cov>=6.2,<8"
+  "pytest>=9.1.1,<10",
+  "pytest-cov>=7.1.0,<8"
 ]

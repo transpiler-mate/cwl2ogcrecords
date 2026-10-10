@@ -16,4 +16,5 @@ limitations under the License.
 
 # Explanation
 
-Read [Architecture](architecture.md) for the conversion flow, PySTAC adapter design, and typing boundaries.
+Read [Architecture](architecture.md) for the conversion flow, dependency
+boundaries, and workflow metadata enrichment.
