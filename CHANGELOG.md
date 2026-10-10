@@ -23,19 +23,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-10
+
 ### Added
 
-### Changed
-
-### Deprecated
-
-### Removed
+- Enrich workflow records with Application links, software version, and optional scientific citations and publication DOIs.
+- Add explicit public resource and citation options without inventing execution provenance.
 
 ### Fixed
 
-### Security
-
-### Added
+- Retain theme concepts without optional labels and stop treating a vocabulary URI as an individual concept URL.
 
 ## [0.1.2] - 2026-10-07
 
@@ -53,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial project release.
 
-[Unreleased]: https://github.com/Transpiler-Mate/cwl2ogcrecords/compare/0.1.1...HEAD
-[0.1.1]: https://github.com/Transpiler-Mate/cwl2ogcrecords/compare/0.1.0...0.1.1
-[0.1.0]: https://github.com/Transpiler-Mate/cwl2ogcrecords/releases/tag/0.1.0
+[Unreleased]: https://github.com/transpiler-mate/cwl2ogcrecords/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/transpiler-mate/cwl2ogcrecords/compare/0.1.2...0.2.0
+[0.1.2]: https://github.com/transpiler-mate/cwl2ogcrecords/compare/0.1.1...0.1.2
+[0.1.1]: https://github.com/transpiler-mate/cwl2ogcrecords/compare/0.1.0...0.1.1
+[0.1.0]: https://github.com/transpiler-mate/cwl2ogcrecords/releases/tag/0.1.0

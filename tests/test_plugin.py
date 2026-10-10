@@ -45,6 +45,7 @@ def metadata() -> SoftwareApplication:
             "dateCreated": "2026-01-02",
             "license": "https://spdx.org/licenses/Apache-2.0",
             "softwareVersion": "1.0.0",
+            "identifier": "10.1234/workflow",
             "softwareHelp": {"name": "User guide", "url": "https://example.org/guide"},
             "publisher": {"name": "Example Institute"},
             "author": {
@@ -131,7 +132,9 @@ def test_serializes_metadata_and_creates_parent_directories(
             "emails": [{"value": "ada@example.org"}],
         }
     ]
-    assert document["links"] == [
+    links = document["links"]
+    assert isinstance(links, list)
+    assert [link for link in links if link["rel"] == "help"] == [
         {"rel": "help", "href": "https://example.org/guide", "title": "User guide"}
     ]
     assert context.metadata.model_dump() == before
@@ -253,13 +256,11 @@ def test_groups_terms_by_scheme(context: TranspilerContext, tmp_path: Path) -> N
                     "id": "elevation",
                     "title": "Elevation",
                     "description": "About elevation",
-                    "url": "https://example.org/themes",
                 },
                 {
                     "id": "slope",
                     "title": "Slope",
                     "description": "About slope",
-                    "url": "https://example.org/themes",
                 },
             ],
         },
@@ -270,14 +271,13 @@ def test_groups_terms_by_scheme(context: TranspilerContext, tmp_path: Path) -> N
                     "id": "water",
                     "title": "Water",
                     "description": "About water",
-                    "url": "https://example.org/other",
                 }
             ],
         },
     ]
 
 
-@pytest.mark.parametrize("missing", ["term_code", "name", "description", "in_defined_term_set"])
+@pytest.mark.parametrize("missing", ["term_code", "in_defined_term_set"])
 def test_incomplete_terms_are_ignored(
     context: TranspilerContext, tmp_path: Path, missing: str
 ) -> None:
@@ -301,7 +301,10 @@ def test_help_links_skip_missing_urls(context: TranspilerContext, tmp_path: Path
         CreativeWork(url=AnyUrl("https://example.org/help")),
         CreativeWork(name="FAQ", url=AnyUrl("https://example.org/faq")),
     ]
-    assert _execute(context, tmp_path / "record.json")["links"] == [
+    document = _execute(context, tmp_path / "record.json")
+    links = document["links"]
+    assert isinstance(links, list)
+    assert [link for link in links if link["rel"] == "help"] == [
         {"rel": "help", "href": "https://example.org/help"},
         {"rel": "help", "href": "https://example.org/faq", "title": "FAQ"},
     ]
@@ -322,3 +325,208 @@ def test_output_failures_preserve_cause_and_destination(
         cwl2ogcrecords.execute(context, CWL2OGCAPIRecordsOptions(output=output))
     assert caught.value.__cause__ is failure
     assert str(output.absolute()) in str(caught.value)
+
+
+def test_application_and_version_metadata(context: TranspilerContext, tmp_path: Path) -> None:
+    context.metadata.identifier = None
+    document = _execute(context, tmp_path / "record.json")
+    properties = document["properties"]
+    assert isinstance(properties, dict)
+    assert properties["version"] == "1.0.0"
+    links = document["links"]
+    assert isinstance(links, list)
+    assert next(link for link in links if link["rel"] == "application") == {
+        "rel": "application",
+        "href": "https://example.org/workflow.cwl",
+        "type": "application/cwl",
+        "application:container": "Common Workflow Language",
+        "application:entrypoint": "elevation",
+    }
+    extensions = document["stac_extensions"]
+    assert isinstance(extensions, list)
+    assert "https://stac-extensions.github.io/application/v0.1.0/schema.json" in extensions
+    assert "https://stac-extensions.github.io/version/v1.2.0/schema.json" in extensions
+    assert "conformsTo" not in document
+    assert "datetime" not in properties
+    assert not any(key.startswith(("sci:", "processing:")) for key in properties)
+
+
+@pytest.mark.parametrize("source", ["file:///tmp/workflow.cwl", "urn:example:workflow"])
+def test_local_sources_are_not_published(
+    context: TranspilerContext, tmp_path: Path, source: str
+) -> None:
+    context = context.model_copy(update={"source": AnyUrl(source)})
+    document = _execute(context, tmp_path / "record.json")
+    assert source not in json.dumps(document)
+    extensions = document["stac_extensions"]
+    assert isinstance(extensions, list)
+    assert "https://stac-extensions.github.io/application/v0.1.0/schema.json" not in extensions
+
+
+def test_explicit_resource_links_override_source(
+    context: TranspilerContext, tmp_path: Path
+) -> None:
+    output = tmp_path / "record.json"
+    context = context.model_copy(update={"source": AnyUrl("file:///tmp/workflow.cwl")})
+    options = CWL2OGCAPIRecordsOptions.model_validate(
+        {
+            "output": output,
+            "application_url": "https://example.org/release.cwl",
+            "repository_url": "https://example.org/repository",
+            "manifest_url": "https://example.org/codemeta.json",
+            "application_input_url": "https://example.org/inputs.yml",
+            "version_history_url": "https://example.org/changelog",
+        }
+    )
+    cwl2ogcrecords.execute(context, options)
+    document = json.loads(output.read_text())
+    links = {link["rel"]: link for link in document["links"]}
+    assert links["application"]["href"] == "https://example.org/release.cwl"
+    assert links["application"]["application:entrypoint"] == "elevation"
+    assert links["vcs"]["href"] == "https://example.org/repository"
+    assert links["manifest"]["href"] == "https://example.org/codemeta.json"
+    assert links["application-input"]["href"] == "https://example.org/inputs.yml"
+    assert links["version-history"]["href"] == "https://example.org/changelog"
+
+
+@pytest.mark.parametrize(
+    "identifier",
+    [
+        "10.1234/workflow.v1",
+        "doi:10.1234/workflow.v1",
+        "https://doi.org/10.1234/workflow.v1",
+        "http://dx.doi.org/10.1234/workflow.v1",
+    ],
+)
+def test_workflow_doi_from_metadata(
+    context: TranspilerContext, tmp_path: Path, identifier: str
+) -> None:
+    context.metadata.identifier = identifier
+    document = _execute(context, tmp_path / "record.json")
+    properties = document["properties"]
+    assert isinstance(properties, dict)
+    assert properties["sci:doi"] == "10.1234/workflow.v1"
+    links = document["links"]
+    assert isinstance(links, list)
+    assert {"rel": "cite-as", "href": "https://doi.org/10.1234/workflow.v1"} in links
+
+
+@pytest.mark.parametrize(
+    "identifier", [None, "workflow-123", "https://example.org/workflow", "10.invalid/value"]
+)
+def test_generic_identifiers_do_not_become_dois(
+    context: TranspilerContext, tmp_path: Path, identifier: str | None
+) -> None:
+    context.metadata.identifier = identifier
+    document = _execute(context, tmp_path / "record.json")
+    properties = document["properties"]
+    assert isinstance(properties, dict)
+    assert not any(key.startswith("sci:") for key in properties)
+    extensions = document["stac_extensions"]
+    assert isinstance(extensions, list)
+    assert not any("/scientific/" in extension for extension in extensions)
+
+
+@pytest.mark.parametrize("identifier", ["10.1234/old-workflow", "10.5678/paper", None])
+@pytest.mark.parametrize("citation", [None, "Lovelace (2026). Elevation workflow, version 1.0.0."])
+def test_workflow_citation_and_papers_remain_distinct(
+    context: TranspilerContext, tmp_path: Path, identifier: str | None, citation: str | None
+) -> None:
+    context.metadata.identifier = identifier
+    output = tmp_path / "record.json"
+    options = CWL2OGCAPIRecordsOptions.model_validate(
+        {
+            "output": output,
+            "workflow_citation": citation,
+            "publication_dois": ["10.5678/paper", "https://doi.org/10.5678/paper"],
+        }
+    )
+    cwl2ogcrecords.execute(context, options)
+    document = json.loads(output.read_text())
+    assert document["properties"].get("sci:doi") == identifier
+    assert document["properties"].get("sci:citation") == citation
+    assert document["properties"]["sci:publications"] == [
+        {"doi": "10.5678/paper", "citation": None}
+    ]
+    expected_citation_links = [f"https://doi.org/{identifier}"] if identifier else []
+    assert [
+        link["href"] for link in document["links"] if link["rel"] == "cite-as"
+    ] == expected_citation_links
+    assert [link for link in document["links"] if link["rel"] == "related"] == [
+        {"rel": "related", "href": "https://doi.org/10.5678/paper"}
+    ]
+
+
+def test_workflow_citation_without_doi(context: TranspilerContext, tmp_path: Path) -> None:
+    context.metadata.identifier = "workflow-123"
+    output = tmp_path / "record.json"
+    citation = "Lovelace (2026). Elevation workflow."
+    cwl2ogcrecords.execute(
+        context, CWL2OGCAPIRecordsOptions(output=output, workflow_citation=citation)
+    )
+    document = json.loads(output.read_text())
+    assert document["properties"]["sci:citation"] == citation
+    assert "sci:doi" not in document["properties"]
+    assert "sci:publications" not in document["properties"]
+    assert not any(link["rel"] in {"cite-as", "related"} for link in document["links"])
+
+
+def test_publication_doi_links_are_url_encoded(context: TranspilerContext, tmp_path: Path) -> None:
+    context.metadata.identifier = None
+    output = tmp_path / "record.json"
+    cwl2ogcrecords.execute(
+        context,
+        CWL2OGCAPIRecordsOptions(output=output, publication_dois=["10.5678/paper#section"]),
+    )
+    document = json.loads(output.read_text())
+    assert document["properties"]["sci:publications"] == [
+        {"doi": "10.5678/paper#section", "citation": None}
+    ]
+    assert [link for link in document["links"] if link["rel"] == "related"] == [
+        {"rel": "related", "href": "https://doi.org/10.5678/paper%23section"}
+    ]
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"workflow_doi": "not-a-doi"},
+        {"workflow_doi": "https://example.org/10.1234/workflow"},
+        {"workflow_doi": "https://doi.org/10.1234/workflow?download=1"},
+        {"publication_dois": ["10.1234/white space"]},
+        {"application_url": "file:///tmp/workflow.cwl"},
+        {"workflow_citation": " "},
+        {"application_entrypoint": " "},
+    ],
+)
+def test_invalid_enrichment_options(options: dict[str, object]) -> None:
+    with pytest.raises(ValidationError):
+        CWL2OGCAPIRecordsOptions.model_validate(options)
+
+
+@pytest.mark.parametrize("missing", ["name", "description"])
+def test_theme_labels_are_optional(
+    context: TranspilerContext, tmp_path: Path, missing: str
+) -> None:
+    context.metadata.keywords = _term("elevation").model_copy(update={missing: None})
+    themes = _properties(context, tmp_path)["themes"]
+    assert isinstance(themes, list)
+    concept = themes[0]["concepts"][0]
+    assert concept["id"] == "elevation"
+    assert ("title" if missing == "name" else "description") not in concept
+    assert "url" not in concept  # The vocabulary URL is not the individual concept URL.
+
+
+def test_empty_version_and_absent_entrypoint_are_omitted(
+    context: TranspilerContext, tmp_path: Path
+) -> None:
+    context.metadata.software_version = " "
+    context = context.model_copy(update={"process_id": None})
+    document = _execute(context, tmp_path / "record.json")
+    properties = document["properties"]
+    assert isinstance(properties, dict)
+    assert "version" not in properties
+    links = document["links"]
+    assert isinstance(links, list)
+    application = next(link for link in links if link["rel"] == "application")
+    assert "application:entrypoint" not in application
