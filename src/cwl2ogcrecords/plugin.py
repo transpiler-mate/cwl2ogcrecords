@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 from urllib.parse import unquote, urlsplit
 
+from giturlparse import parse as parse_git_url
 from loguru import logger
 from pydantic import (
     AfterValidator,
@@ -45,6 +46,7 @@ from pystac.extensions.ogc_record import (
     ThemeConcept,
 )
 from pystac.extensions.scientific import Publication, ScientificExtension, doi_to_url
+from pystac.extensions.vcs import VcsExtension
 from pystac.extensions.version import VersionExtension
 from transpiler_mate.api import (
     AuthorRole,
@@ -93,20 +95,63 @@ DOI = Annotated[str, AfterValidator(_normalize_doi)]
 NonEmptyText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
+def _repository_reference(url: str) -> tuple[str, str, str]:
+    """Split recognized GitHub/GitLab browser URLs into repository, kind, and ref.
+
+    Tree URLs must name the ref itself, without a subdirectory. Blob URLs
+    use the first path segment as the ref; encode slashes within ref names.
+    """
+    parsed = urlsplit(url)
+    pattern = (
+        r"(/[^/]+/[^/]+)/(tree|blob|commit|releases/tag)/(.+)"
+        if parsed.hostname == "github.com"
+        else r"(.+)/-/(tree|blob|commit|tags|releases)/(.+)"
+    )
+    match = re.fullmatch(pattern, parsed.path)
+    if match is None:
+        return url, "", ""
+    repository, kind, reference = match.groups()
+    if kind == "blob":
+        reference = reference.split("/", 1)[0]
+    return parsed._replace(path=repository).geturl(), kind, unquote(reference)
+
+
+def _validate_repository_url(value: str) -> str:
+    """Accept public repository URLs and Git remotes, without embedded secrets.
+
+    Raises:
+        ValueError: If the URL is malformed, local, or contains credentials,
+            query parameters, or a fragment.
+    """
+    value = value.strip()
+    parsed = urlsplit(value)
+    if parsed.query or parsed.fragment or re.search(r"\s", value):
+        raise ValueError("Repository URLs must not contain whitespace, queries, or fragments")
+    if parsed.password or (parsed.scheme in {"http", "https"} and parsed.username):
+        raise ValueError("Repository URLs must not contain credentials")
+    repository, _, _ = _repository_reference(value)
+    if parse_git_url(repository).valid:
+        return value
+    # Preserve previously accepted public repository landing pages.
+    if parsed.scheme in {"http", "https"}:
+        return str(AnyHttpUrl(value))
+    raise ValueError("Expected a public repository URL or a Git remote")
+
+
 class CWL2OGCAPIRecordsOptions(BaseModel):
     """Options accepted by the CWL to OGC API - Records plugin."""
 
     model_config = ConfigDict(extra="forbid")
 
-    output: Annotated[
-        Path,
-        Field(default=Path("ogc-record.json"), description="The output file path"),
-    ]
+    output: Path = Field(default=Path("ogc-record.json"), description="The output file path")
 
     application_url: AnyHttpUrl | None = Field(
         default=None, description="Public CWL URL; defaults to an HTTP(S) context.source"
     )
-    repository_url: AnyHttpUrl | None = Field(default=None, description="Source repository URL")
+    repository_url: Annotated[str, AfterValidator(_validate_repository_url)] | None = Field(
+        default=None,
+        description="Public repository URL or Git remote, optionally identifying a ref",
+    )
     manifest_url: AnyHttpUrl | None = Field(
         default=None, description="CodeMeta or dependency manifest URL"
     )
@@ -139,7 +184,6 @@ def _add_application_links(
             link.extra_fields["application:entrypoint"] = entrypoint
         record.add_link(link)
     for relation, target in (
-        ("vcs", options.repository_url),
         ("manifest", options.manifest_url),
         ("application-input", options.application_input_url),
     ):
@@ -160,7 +204,7 @@ def _add_scientific_metadata(
             doi = _normalize_doi(str(metadata.identifier))
         except ValueError:
             # A generic software identifier is valid metadata, but not a DOI.
-            logger.debug("Skipping non-DOI software identifier: {}", metadata.identifier)
+            logger.debug(f"Skipping non-DOI software identifier: {metadata.identifier}")
 
     if not (doi or options.workflow_citation or options.publication_dois):
         return
@@ -283,6 +327,46 @@ def _to_contact(author: Person | AuthorRole) -> Contact:
     )
 
 
+def _add_vcs_metadata(options: CWL2OGCAPIRecordsOptions, record: OGCRecord) -> None:
+    """Add a repository link with VCS v0.1.0 metadata inferred without network access.
+
+    Plain remotes identify Git only. Browser tree/blob refs are treated as
+    branches unless they are full commit hashes or explicit ``refs/tags/``
+    refs. Release/tag and commit URLs identify tags and revisions explicitly.
+    """
+    if options.repository_url is None:
+        return
+
+    link = Link("vcs", options.repository_url)
+    record.add_link(link)
+
+    repository, kind, reference = _repository_reference(options.repository_url)
+    if not parse_git_url(repository).valid:
+        return
+
+    link_vcs_extension = VcsExtension.ext(link, add_if_missing=True)
+    link_vcs_extension.vcs_type = "git"
+    record_vcs_extension = VcsExtension.ext(record, add_if_missing=True)
+    record_vcs_extension.vcs_type = "git"
+    if not reference:
+        return
+    if kind in {"releases/tag", "tags", "releases"}:
+        link_vcs_extension.tag = reference
+    elif kind == "commit" or re.fullmatch(r"[0-9a-fA-F]{40}|[0-9a-fA-F]{64}", reference):
+        link_vcs_extension.revision = reference
+    elif reference.startswith("refs/tags/"):
+        link_vcs_extension.tag = reference.removeprefix("refs/tags/")
+    else:
+        link_vcs_extension.branch = reference.removeprefix("refs/heads/")
+
+    record_vcs_extension.apply(
+        vcs_type=link_vcs_extension.vcs_type,
+        branch=link_vcs_extension.branch,
+        revision=link_vcs_extension.revision,
+        tag=link_vcs_extension.tag,
+    )
+
+
 @transpiler_plugin(
     name="cwl2ogcrecords",
     description="CWL to OGC API - Records Transpiler-Mate Plugin.",
@@ -326,6 +410,7 @@ def cwl2ogcrecords(context: TranspilerContext, options: CWL2OGCAPIRecordsOptions
     _add_help_links(context.metadata, record)
     _add_workflow_extensions(context, options, record)
     _add_scientific_metadata(context.metadata, options, record)
+    _add_vcs_metadata(options, record)
 
     logger.success("Input CWL successfully converted to OGC API - Records!")
 

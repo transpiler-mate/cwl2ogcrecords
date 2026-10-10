@@ -530,3 +530,110 @@ def test_empty_version_and_absent_entrypoint_are_omitted(
     assert isinstance(links, list)
     application = next(link for link in links if link["rel"] == "application")
     assert "application:entrypoint" not in application
+
+
+@pytest.mark.parametrize(
+    ("repository_url", "expected_fields"),
+    [
+        ("https://github.com/example/workflow", {}),
+        ("git@github.com:example/workflow.git", {}),
+        ("ssh://git@gitlab.com/team/workflow.git", {}),
+        ("git://github.com/example/workflow.git", {}),
+        ("https://github.com/example/workflow/tree/main", {"vcs:branch": "main"}),
+        (
+            "https://gitlab.com/team/subgroup/workflow/-/tree/feature/topic",
+            {"vcs:branch": "feature/topic"},
+        ),
+        (
+            "https://github.com/example/workflow/blob/main/workflow.cwl",
+            {"vcs:branch": "main"},
+        ),
+        (
+            "https://gitlab.example.org/team/workflow/-/blob/feature%2Ftopic/workflow.cwl",
+            {"vcs:branch": "feature/topic"},
+        ),
+        (
+            "https://github.com/example/workflow/releases/tag/v1.2.0",
+            {"vcs:tag": "v1.2.0"},
+        ),
+        ("https://gitlab.com/team/workflow/-/tags/v1.2.0", {"vcs:tag": "v1.2.0"}),
+        ("https://gitlab.com/team/workflow/-/releases/v1.2.0", {"vcs:tag": "v1.2.0"}),
+        (
+            "https://github.com/example/workflow/tree/refs/tags/v1.2.0",
+            {"vcs:tag": "v1.2.0"},
+        ),
+        (
+            "https://github.com/example/workflow/tree/refs/heads/main",
+            {"vcs:branch": "main"},
+        ),
+        ("https://github.com/example/workflow/commit/abc1234", {"vcs:revision": "abc1234"}),
+        ("https://gitlab.com/team/workflow/-/commit/abc1234", {"vcs:revision": "abc1234"}),
+        (
+            "https://github.com/example/workflow/tree/" + "a" * 40,
+            {"vcs:revision": "a" * 40},
+        ),
+        (
+            "https://github.com/example/workflow/blob/" + "b" * 64 + "/workflow.cwl",
+            {"vcs:revision": "b" * 64},
+        ),
+    ],
+)
+def test_repository_vcs_metadata(
+    context: TranspilerContext,
+    tmp_path: Path,
+    repository_url: str,
+    expected_fields: dict[str, str],
+) -> None:
+    output = tmp_path / "record.json"
+    cwl2ogcrecords.execute(
+        context, CWL2OGCAPIRecordsOptions(output=output, repository_url=repository_url)
+    )
+    document = json.loads(output.read_text())
+    assert [link for link in document["links"] if link["rel"] == "vcs"] == [
+        {"rel": "vcs", "href": repository_url, "vcs:type": "git", **expected_fields}
+    ]
+    assert (
+        document["stac_extensions"].count(
+            "https://stac-extensions.github.io/vcs/v0.1.0/schema.json"
+        )
+        == 1
+    )
+    assert {
+        key: value for key, value in document["properties"].items() if key.startswith("vcs:")
+    } == {"vcs:type": "git", **expected_fields}
+    assert "vcs:commit" not in output.read_text()
+
+
+def test_absent_repository_omits_vcs(context: TranspilerContext, tmp_path: Path) -> None:
+    document = _execute(context, tmp_path / "record.json")
+    links = document["links"]
+    assert isinstance(links, list)
+    assert not any(link["rel"] == "vcs" for link in links)
+    extensions = document["stac_extensions"]
+    assert isinstance(extensions, list)
+    assert "https://stac-extensions.github.io/vcs/v0.1.0/schema.json" not in extensions
+
+
+@pytest.mark.parametrize(
+    "repository_url",
+    [
+        "",
+        " ",
+        "not a URL",
+        "/tmp/repository",
+        "file:///tmp/repository",
+        "ftp://example.org/repository",
+        "https://user:secret@github.com/team/repo",
+        "https://token@github.com/team/repo",
+        "https://github.com/team/repo?token=secret",
+        "https://github.com/team/repo#main",
+    ],
+)
+def test_invalid_repository_urls(repository_url: str) -> None:
+    with pytest.raises(ValidationError):
+        CWL2OGCAPIRecordsOptions(repository_url=repository_url)
+
+
+def test_repository_url_trims_whitespace() -> None:
+    options = CWL2OGCAPIRecordsOptions(repository_url="  git@github.com:team/repo.git  ")
+    assert options.repository_url == "git@github.com:team/repo.git"

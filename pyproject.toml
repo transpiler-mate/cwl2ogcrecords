@@ -49,7 +49,9 @@ classifiers = [
 dependencies = [
   "transpiler-mate-api>=1.0.0",
   "loguru==0.7.3",
-  "pystac-ext-ogc-record>=1.1.0" # 1.0.0 has datetime serialization bugs
+  "pystac-ext-ogc-record>=1.1.0", # 1.0.0 has datetime serialization bugs
+  "pystac-ext-vcs>=0.1.0",
+  "giturlparse>=0.15.0",
 ]
 
 # ---------------------------------------------------------------------------
@@ -81,6 +83,7 @@ path = "src/cwl2ogcrecords/__about__.py"
 include = [
   "/src",
   "/tests",
+  "/typings",
   "/docs",
   "/README.md",
   "/CHANGELOG.md",
@@ -243,6 +246,7 @@ max-statements = 40
 # ---------------------------------------------------------------------------
 
 [tool.mypy]
+mypy_path = "typings"
 
 # Strict typing is the default for new Terradue Python projects.
 strict = true
