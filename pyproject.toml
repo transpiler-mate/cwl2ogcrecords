@@ -51,7 +51,7 @@ dependencies = [
   "loguru==0.7.3",
   "pystac-ext-ogc-record>=1.1.0", # 1.0.0 has datetime serialization bugs
   "pystac-ext-vcs>=0.1.0",
-  "giturlparse>=0.15.0",
+  "giturlparse>=0.16.0",
 ]
 
 # ---------------------------------------------------------------------------
