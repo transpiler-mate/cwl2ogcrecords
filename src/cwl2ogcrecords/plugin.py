@@ -21,6 +21,7 @@ import json
 import re
 import uuid
 from datetime import date, datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Protocol, runtime_checkable
 from urllib.parse import unquote, urlsplit
@@ -49,6 +50,7 @@ from pystac.extensions.ogc_record import (
     ThemeConcept,
 )
 from pystac.extensions.scientific import Publication, ScientificExtension, doi_to_url
+from pystac.extensions.timestamps import TimestampsExtension
 from pystac.extensions.vcs import VcsExtension
 from pystac.extensions.version import VersionExtension
 from requests import RequestException, Session
@@ -174,7 +176,7 @@ class _ResolverWithSession(Protocol):
     _session: Session
 
 
-def _add_file_metadata(context: TranspilerContext, link: Link) -> None:
+def _add_file_metadata(context: TranspilerContext, link: Link, record: OGCRecord) -> None:
     """Fetch the source again through the resolver and describe its returned bytes.
 
     The resolver session is borrowed and remains open. File metadata describes
@@ -196,6 +198,7 @@ def _add_file_metadata(context: TranspilerContext, link: Link) -> None:
             for chunk in response.iter_content(chunk_size=65536):
                 checksum.update(chunk)
                 size += len(chunk)
+            last_modified = response.headers.get("Last-Modified")
         finally:
             response.close()
     except (RequestException, OSError) as exc:
@@ -204,6 +207,23 @@ def _add_file_metadata(context: TranspilerContext, link: Link) -> None:
     FileExtension.ext(link, add_if_missing=True).apply(
         checksum="1220" + checksum.hexdigest(), size=size
     )
+    _add_publication_metadata(record, last_modified)
+
+
+def _add_publication_metadata(record: OGCRecord, last_modified: str | None) -> None:
+    """Use a valid HTTP modification date as a publication-time approximation.
+
+    Missing or malformed dates leave the record unchanged. This fallback reflects
+    source modification, not an independently verified first publication event.
+    """
+    if not last_modified:
+        return
+    try:
+        published = _to_datetime(parsedate_to_datetime(last_modified)).astimezone(timezone.utc)
+    except (ValueError, OverflowError):
+        logger.debug("Ignoring invalid Last-Modified header for publication metadata")
+        return
+    TimestampsExtension.ext(record, add_if_missing=True).published = published
 
 
 def _add_application_metadata(
@@ -222,7 +242,7 @@ def _add_application_metadata(
 
             _add_application_metadata(context, options, link)
             target.add_link(link)
-            _add_file_metadata(context, link)
+            _add_file_metadata(context, link, target)
         for relation, target_obj in (
             ("manifest", options.manifest_url),
             ("application-input", options.application_input_url),

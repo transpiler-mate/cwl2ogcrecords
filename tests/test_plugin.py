@@ -63,6 +63,7 @@ def metadata() -> SoftwareApplication:
 @pytest.fixture
 def context(metadata: SoftwareApplication) -> TranspilerContext:
     response = Mock(spec=Response)
+    response.headers = {}
     response.iter_content.return_value = [b"test"]
     session = Mock(spec=Session)
     session.get.return_value = response
@@ -670,6 +671,7 @@ def test_file_metadata_uses_resolver_session(
     expected_checksum: str,
 ) -> None:
     response = Mock(spec=Response)
+    response.headers = {}
     response.iter_content.return_value = chunks
     with patch.object(context.resolver, "_session", spec=Session) as session:
         session.get.return_value = response
@@ -694,6 +696,7 @@ def test_file_retrieval_failure_preserves_cause(
     context: TranspilerContext, tmp_path: Path, operation: str
 ) -> None:
     response = Mock(spec=Response)
+    response.headers = {}
     failure = RequestException("Source unavailable")
     output = tmp_path / "record.json"
     with patch.object(context.resolver, "_session", spec=Session) as session:
@@ -719,3 +722,43 @@ def test_file_metadata_requires_resolver_session(
     context = context.model_copy(update={"resolver": Mock(spec=TranspilerContextResolver)})
     with pytest.raises(PluginExecutionError, match="resolver with a _session"):
         cwl2ogcrecords.execute(context, CWL2OGCAPIRecordsOptions(output=tmp_path / "record.json"))
+
+
+@pytest.mark.parametrize(
+    ("last_modified", "expected"),
+    [
+        ("Wed, 21 Oct 2015 07:28:00 GMT", "2015-10-21T07:28:00Z"),
+        ("Wed, 21 Oct 2015 09:28:00 +0200", "2015-10-21T07:28:00Z"),
+        ("Wed Oct 21 07:28:00 2015", "2015-10-21T07:28:00Z"),
+        (None, None),
+        ("", None),
+        ("invalid", None),
+        ("Wed, 32 Oct 2015 07:28:00 GMT", None),
+    ],
+)
+def test_publication_fallback_from_last_modified(
+    context: TranspilerContext,
+    tmp_path: Path,
+    last_modified: str | None,
+    expected: str | None,
+) -> None:
+    response = Mock(spec=Response)
+    response.headers = {"Date": "Fri, 30 Oct 2026 10:00:00 GMT"}
+    if last_modified is not None:
+        response.headers["Last-Modified"] = last_modified
+    response.iter_content.return_value = [b"test"]
+    with patch.object(context.resolver, "_session", spec=Session) as session:
+        session.get.return_value = response
+        document = _execute(context, tmp_path / "record.json")
+    properties = document["properties"]
+    assert isinstance(properties, dict)
+    extensions = document["stac_extensions"]
+    assert isinstance(extensions, list)
+    timestamps_schema = "https://stac-extensions.github.io/timestamps/v1.1.0/schema.json"
+    if expected is None:
+        assert "published" not in properties
+        assert timestamps_schema not in extensions
+    else:
+        assert properties["published"] == expected
+        assert timestamps_schema in extensions
+    response.close.assert_called_once_with()
