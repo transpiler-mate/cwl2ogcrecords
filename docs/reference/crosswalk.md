@@ -36,7 +36,7 @@ Namespaced keys such as `sci:doi` are literal JSON keys.
 | CWL / source input | Resolved Python field | OGC Record output | Transformation or condition |
 | --- | --- | --- | --- |
 | Process fragment in `SOURCE`, such as `workflow.cwl#main` | `context.process_id` | `id`; `links[rel=application]["application:entrypoint"]` | The ID is copied when nonempty. Otherwise `id` is a generated `urn:uuid:…`; no entrypoint is emitted. |
-| Positional `SOURCE` | `context.source` | `links[rel=application].href` | HTTP(S) sources only; `--application-url` overrides this value. Local paths and other schemes are not published as application links. |
+| Positional `SOURCE` | `context.source` | `links[rel=application].href` | The context source URL is preserved without scheme filtering. |
 | `s:name` | `metadata.name` | `properties.title` | Copied. |
 | `s:description` | `metadata.description` | `properties.description` | Omitted when empty or absent. |
 | `s:dateCreated` | `metadata.date_created` | `properties.created` | UTC datetime with whole-second precision. Date-only values become midnight UTC; naive datetimes are treated as UTC. |
@@ -45,7 +45,9 @@ Namespaced keys such as `sci:doi` are literal JSON keys.
 | `s:identifier` containing a DOI | `metadata.identifier` | `properties["sci:doi"]`; `links[rel=cite-as].href` | Normalized to a bare DOI and a DOI resolver link. Generic identifiers are not mapped to these fields. |
 | String `s:keywords` | `metadata.keywords` | `properties.keywords[]` | A scalar or list; string entries are copied. |
 | Structured `s:keywords` (`DefinedTerm`) | `metadata.keywords` | `properties.themes[]` | Grouped by scheme; see the theme crosswalk below. |
-| `s:author` | `metadata.author` | `properties.contacts[]` | One contact per person or author role; see the contact crosswalk below. |
+| `s:author` | `metadata.author` | `properties.contacts[]` | One contact per person or author role with `author` responsibility. |
+| `s:contributor` | `metadata.contributor` | `properties.contacts[]` | One contact per person or contributor role with `contributor` responsibility. |
+| `s:publisher` | `metadata.publisher` | `properties.contacts[]` | Organization contact with `publisher` responsibility. |
 | `s:softwareHelp.s:url` | `metadata.software_help[].url` | `links[rel=help].href` | A scalar or list of help objects; objects without a URL are skipped. |
 | `s:softwareHelp.s:name` | `metadata.software_help[].name` | `links[rel=help].title` | Used on the corresponding help link. |
 
@@ -57,14 +59,18 @@ metadata; see [input boundaries](plugin.md#current-boundaries).
 
 For a `Person`, the paths below are relative to `s:author`. For an `AuthorRole`,
 use the nested person in `s:author.s:author` and the role's `s:roleName`.
+Contributors use the corresponding `s:contributor` paths.
 
 | CWL metadata within the person or role | OGC Record contact field | Transformation |
 | --- | --- | --- |
-| Person `s:identifier` | `properties.contacts[].identifier` | Converted to a string. |
+| Person `s:identifier` | `properties.contacts[].identifier` | Converted to a string when present. |
 | Person `s:familyName`, `s:givenName` | `properties.contacts[].name` | Formatted as `familyName, givenName`. |
 | Person `s:affiliation.s:name` | `properties.contacts[].organization` | Uses the first affiliation when a list is supplied. |
 | Person `s:email` | `properties.contacts[].emails[].value` | One email entry per value. |
-| Role `s:roleName` | `properties.contacts[].position` | Copied for an `AuthorRole`; plain people receive `N/A`. This does not populate contact `roles`. |
+| Role `s:roleName` | `properties.contacts[].roles[]` | Supplements the source responsibility. Common roles (`author`, `contributor`, `publisher`, `maintainer`) are trimmed and lowercased; custom labels are preserved after trimming. Blank and duplicate roles are omitted. |
+
+`position` is omitted: resource roles are not organizational job positions, and
+the current person model supplies no organizational-position field.
 
 ### Themes
 
@@ -88,7 +94,6 @@ CLI names use hyphens, while Python option names use underscores.
 | CLI option | Python option | OGC Record output or effect |
 | --- | --- | --- |
 | `--output` | `output` | Destination file, default `ogc-record.json`. Creates parent directories and overwrites the file. Does not set a record field or self link. |
-| `--application-url` | `application_url` | HTTP(S) override for `links[rel=application].href`, including when `SOURCE` is local. |
 | `--repository-url` | `repository_url` | `links[rel=vcs].href`, plus inferred VCS fields on that link and in `properties`. Accepts one string; see below. |
 | `--manifest-url` | `manifest_url` | HTTP(S) `links[rel=manifest].href`. |
 | `--application-input-url` | `application_input_url` | HTTP(S) `links[rel=application-input].href`. This links to example parameters; it does not copy their contents. |
@@ -153,11 +158,10 @@ and performs no complete output-schema validation before writing.
 ```bash
 transpiler-mate cwl2ogcrecords \
   --output build/record.json \
-  --application-url https://example.org/workflow.cwl \
   --repository-url https://github.com/team/workflow/releases/tag/v1.2.0 \
   --workflow-citation 'Example Team (2026). Example Workflow.' \
   --publication-dois 10.5678/example-paper \
-  'workflow.cwl#main'
+  'https://example.org/workflow.cwl#main'
 ```
 
 With the host-resolved process ID `main`, this sets the record ID and application
