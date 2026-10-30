@@ -25,8 +25,10 @@ from pydantic import AnyUrl, ValidationError
 from requests import RequestException, Response, Session
 from transpiler_mate.api import (
     AuthorRole,
+    ContributorRole,
     CreativeWork,
     DefinedTerm,
+    Organization,
     Person,
     PluginExecutionError,
     SoftwareApplication,
@@ -136,9 +138,10 @@ def test_serializes_metadata_and_creates_parent_directories(
             "identifier": "https://example.org/ada",
             "name": "Lovelace, Ada",
             "organization": "Example Institute",
-            "position": "N/A",
+            "roles": ["author"],
             "emails": [{"value": "ada@example.org"}],
-        }
+        },
+        {"organization": "Example Institute", "roles": ["publisher"]},
     ]
     links = document["links"]
     assert isinstance(links, list)
@@ -215,12 +218,12 @@ def test_author_roles_multiple_emails_and_affiliations(
     context.metadata.author = [author, role]
     contacts = _properties(context, tmp_path)["contacts"]
     assert isinstance(contacts, list)
-    assert [contact["name"] for contact in contacts] == ["Lovelace, Ada", "Hopper, Grace"]
+    assert [contact["name"] for contact in contacts[:-1]] == ["Lovelace, Ada", "Hopper, Grace"]
     assert contacts[1] == {
         "identifier": "grace",
         "name": "Hopper, Grace",
         "organization": "First Institute",
-        "position": "Maintainer",
+        "roles": ["author", "maintainer"],
         "emails": [{"value": "grace@example.org"}, {"value": "hopper@example.org"}],
     }
 
@@ -762,3 +765,74 @@ def test_publication_fallback_from_last_modified(
         assert properties["published"] == expected
         assert timestamps_schema in extensions
     response.close.assert_called_once_with()
+
+
+@pytest.mark.parametrize("multiple", [False, True])
+def test_contributors_include_resource_roles(
+    context: TranspilerContext, tmp_path: Path, multiple: bool
+) -> None:
+    person = context.metadata.author
+    assert isinstance(person, Person)
+    maintainer = ContributorRole.model_validate({"roleName": " Maintainer ", "contributor": person})
+    context.metadata.contributor = [person, maintainer] if multiple else maintainer
+    contacts = _properties(context, tmp_path)["contacts"]
+    assert isinstance(contacts, list)
+    expected_roles = (
+        [["contributor"], ["contributor", "maintainer"]]
+        if multiple
+        else [["contributor", "maintainer"]]
+    )
+    assert [contact["roles"] for contact in contacts[1:-1]] == expected_roles
+    assert all("position" not in contact for contact in contacts)
+
+
+@pytest.mark.parametrize("multiple", [False, True])
+def test_publisher_contact_details(
+    context: TranspilerContext, tmp_path: Path, multiple: bool
+) -> None:
+    context.metadata.publisher = Organization.model_validate(
+        {
+            "name": "Workflow Publisher",
+            "identifier": "https://example.org/publisher",
+            "email": ["first@example.org", "second@example.org"]
+            if multiple
+            else "first@example.org",
+        }
+    )
+    contacts = _properties(context, tmp_path)["contacts"]
+    assert isinstance(contacts, list)
+    expected_emails = [{"value": "first@example.org"}]
+    if multiple:
+        expected_emails.append({"value": "second@example.org"})
+    assert contacts[-1] == {
+        "organization": "Workflow Publisher",
+        "identifier": "https://example.org/publisher",
+        "emails": expected_emails,
+        "roles": ["publisher"],
+    }
+
+
+@pytest.mark.parametrize(
+    ("role_name", "expected_roles"),
+    [
+        ("Author", ["author"]),
+        ("", ["author"]),
+        ("   ", ["author"]),
+        (" Principal Investigator ", ["author", "Principal Investigator"]),
+    ],
+)
+def test_author_role_names_are_responsibilities(
+    context: TranspilerContext, tmp_path: Path, role_name: str, expected_roles: list[str]
+) -> None:
+    person = context.metadata.author
+    assert isinstance(person, Person)
+    person.identifier = None
+    person.affiliation = []
+    context.metadata.author = AuthorRole.model_validate({"roleName": role_name, "author": person})
+    contacts = _properties(context, tmp_path)["contacts"]
+    assert isinstance(contacts, list)
+    assert contacts[0] == {
+        "name": "Lovelace, Ada",
+        "roles": expected_roles,
+        "emails": [{"value": "ada@example.org"}],
+    }

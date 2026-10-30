@@ -44,6 +44,7 @@ from pystac.extensions.ogc_record import (
     Contact,
     ContactDetail,
     Language,
+    NamedContact,
     OGCRecord,
     OrganizationContact,
     Theme,
@@ -56,8 +57,10 @@ from pystac.extensions.version import VersionExtension
 from requests import RequestException, Session
 from transpiler_mate.api import (
     AuthorRole,
+    ContributorRole,
     CreativeWork,
     DefinedTerm,
+    Organization,
     Person,
     PluginExecutionError,
     SoftwareApplication,
@@ -353,34 +356,59 @@ def _add_help_links(metadata: SoftwareApplication, record: OGCRecord) -> None:
             )
 
 
-def _to_contact(author: Person | AuthorRole) -> Contact:
-    position: str = "N/A"
+def _to_contact(
+    agent: Person | AuthorRole | ContributorRole | Organization, responsibility: str
+) -> Contact:
+    """Map a resource participant without treating responsibilities as job positions.
 
-    if isinstance(author, AuthorRole):
-        position = author.role_name
-        author = author.author
+    The source property supplies the base responsibility. Explicit role names
+    supplement it, preserving custom labels and normalizing common roles.
+    """
+    roles = [responsibility]
+    if isinstance(agent, (AuthorRole, ContributorRole)):
+        role_name = agent.role_name.strip()
+        if role_name.casefold() in {"author", "contributor", "publisher", "maintainer"}:
+            role_name = role_name.casefold()
+        if role_name and role_name not in roles:
+            roles.append(role_name)
+        agent = agent.author if isinstance(agent, AuthorRole) else agent.contributor
 
-    affiliations = (
-        author.affiliation if isinstance(author.affiliation, list) else [author.affiliation]
-    )
+    return _participant_contact(agent, roles)
 
-    def _to_contact_detail(email: str) -> ContactDetail:
-        return ContactDetail(value=email)
 
-    emails: list[ContactDetail] = list(
-        map(
-            _to_contact_detail,
-            (author.email if isinstance(author.email, list) else [author.email]),
+def _participant_contact(agent: Person | Organization, roles: list[str]) -> Contact:
+    """Map participant identity and contact details, omitting unavailable fields."""
+    contact: Contact
+    if isinstance(agent, Organization):
+        contact = OrganizationContact(organization=agent.name, roles=roles)
+    else:
+        contact = NamedContact(name=f"{agent.family_name}, {agent.given_name}", roles=roles)
+        affiliations = (
+            agent.affiliation if isinstance(agent.affiliation, list) else [agent.affiliation]
         )
-    )
+        if affiliations:
+            contact["organization"] = affiliations[0].name
+    if agent.identifier is not None:
+        contact["identifier"] = str(agent.identifier)
+    if agent.email:
+        emails = agent.email if isinstance(agent.email, list) else [agent.email]
+        contact["emails"] = [ContactDetail(value=email) for email in emails]
+    return contact
 
-    return OrganizationContact(
-        identifier=str(author.identifier),
-        name=f"{author.family_name}, {author.given_name}",
-        organization=affiliations[0].name,
-        position=position,
-        emails=emails,
-    )
+
+def _to_contacts(metadata: SoftwareApplication) -> list[Contact]:
+    """Return authors, contributors, and publisher with their resource responsibilities."""
+    authors = metadata.author if isinstance(metadata.author, list) else [metadata.author]
+    contacts = [_to_contact(author, "author") for author in authors]
+    if metadata.contributor is not None:
+        contributors = (
+            metadata.contributor
+            if isinstance(metadata.contributor, list)
+            else [metadata.contributor]
+        )
+        contacts.extend(_to_contact(contributor, "contributor") for contributor in contributors)
+    contacts.append(_to_contact(metadata.publisher, "publisher"))
+    return contacts
 
 
 def _add_vcs_metadata(options: CWL2OGCAPIRecordsOptions, record: OGCRecord) -> None:
@@ -453,14 +481,7 @@ def cwl2ogcrecords(context: TranspilerContext, options: CWL2OGCAPIRecordsOptions
         ]
     )
 
-    record.contacts = list(
-        map(
-            _to_contact,
-            context.metadata.author
-            if isinstance(context.metadata.author, list)
-            else [context.metadata.author],
-        )
-    )
+    record.contacts = _to_contacts(context.metadata)
 
     _add_application_metadata(context, options, record)
     _add_kw_themes(context.metadata, record)
