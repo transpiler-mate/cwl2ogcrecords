@@ -36,6 +36,7 @@ from pydantic import (
     StringConstraints,
 )
 from pystac import Link
+from pystac.extensions.application import ApplicationExtension
 from pystac.extensions.ogc_record import (
     Contact,
     ContactDetail,
@@ -63,9 +64,6 @@ if TYPE_CHECKING:
 
 
 __DEFAULT_LANGUAGE__: Language = Language(code="en-US", name="English (United States)")
-
-
-APPLICATION_SCHEMA = "https://stac-extensions.github.io/application/v0.1.0/schema.json"
 
 
 def _normalize_doi(value: str) -> str:
@@ -145,9 +143,6 @@ class CWL2OGCAPIRecordsOptions(BaseModel):
 
     output: Path = Field(default=Path("ogc-record.json"), description="The output file path")
 
-    application_url: AnyHttpUrl | None = Field(
-        default=None, description="Public CWL URL; defaults to an HTTP(S) context.source"
-    )
     repository_url: Annotated[str, AfterValidator(_validate_repository_url)] | None = Field(
         default=None,
         description="Public repository URL or Git remote, optionally identifying a ref",
@@ -169,29 +164,27 @@ class CWL2OGCAPIRecordsOptions(BaseModel):
     )
 
 
-def _add_application_links(
-    context: TranspilerContext, options: CWL2OGCAPIRecordsOptions, record: OGCRecord
+def _add_application_metadata(
+    context: TranspilerContext, options: CWL2OGCAPIRecordsOptions, target: OGCRecord | Link
 ) -> None:
-    """Attach explicitly known application resources without publishing local paths."""
-    source = options.application_url
-    if source is None and context.source.scheme in {"http", "https"}:
-        source = AnyHttpUrl(str(context.source))
-    if source is not None:
-        link = Link("application", str(source), media_type="application/cwl")
-        link.extra_fields["application:container"] = "Common Workflow Language"
-        entrypoint = context.process_id
-        if entrypoint:
-            link.extra_fields["application:entrypoint"] = entrypoint
-        record.add_link(link)
-    for relation, target in (
-        ("manifest", options.manifest_url),
-        ("application-input", options.application_input_url),
-    ):
-        if target is not None:
-            record.add_link(Link(relation, str(target)))
-    if source is not None:
-        # Application currently has no accessor in the project's PySTAC dependency.
-        record.stac_extensions.append(APPLICATION_SCHEMA)
+    """Add STAC Application Extension metadata."""
+    app_ext = ApplicationExtension.ext(target, add_if_missing=isinstance(target, OGCRecord))
+    app_ext.apply(
+        container="Common Workflow Language", entrypoint=context.process_id, languages=["cwl"]
+    )
+
+    if isinstance(target, OGCRecord):
+        source = context.source
+        if source:
+            link = Link("application", str(source), media_type="application/cwl")
+            _add_application_metadata(context, options, link)
+            target.add_link(link)
+        for relation, target_obj in (
+            ("manifest", options.manifest_url),
+            ("application-input", options.application_input_url),
+        ):
+            if target_obj is not None:
+                target.add_link(Link(relation, str(target_obj)))
 
 
 def _add_scientific_metadata(
@@ -228,7 +221,6 @@ def _add_workflow_extensions(
     context: TranspilerContext, options: CWL2OGCAPIRecordsOptions, record: OGCRecord
 ) -> None:
     """Enrich a workflow definition without inventing execution provenance."""
-    _add_application_links(context, options, record)
     version = context.metadata.software_version.strip()
     if version or options.version_history_url:
         version_extension = VersionExtension.ext(record, add_if_missing=True)
@@ -406,6 +398,7 @@ def cwl2ogcrecords(context: TranspilerContext, options: CWL2OGCAPIRecordsOptions
         )
     )
 
+    _add_application_metadata(context, options, record)
     _add_kw_themes(context.metadata, record)
     _add_help_links(context.metadata, record)
     _add_workflow_extensions(context, options, record)

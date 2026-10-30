@@ -341,6 +341,7 @@ def test_application_and_version_metadata(context: TranspilerContext, tmp_path: 
         "type": "application/cwl",
         "application:container": "Common Workflow Language",
         "application:entrypoint": "elevation",
+        "application:languages": ["cwl"],
     }
     extensions = document["stac_extensions"]
     assert isinstance(extensions, list)
@@ -351,27 +352,25 @@ def test_application_and_version_metadata(context: TranspilerContext, tmp_path: 
     assert not any(key.startswith(("sci:", "processing:")) for key in properties)
 
 
-@pytest.mark.parametrize("source", ["file:///tmp/workflow.cwl", "urn:example:workflow"])
-def test_local_sources_are_not_published(
-    context: TranspilerContext, tmp_path: Path, source: str
-) -> None:
-    context = context.model_copy(update={"source": AnyUrl(source)})
-    document = _execute(context, tmp_path / "record.json")
-    assert source not in json.dumps(document)
-    extensions = document["stac_extensions"]
-    assert isinstance(extensions, list)
-    assert "https://stac-extensions.github.io/application/v0.1.0/schema.json" not in extensions
-
-
-def test_explicit_resource_links_override_source(
+def test_application_link_preserves_context_source(
     context: TranspilerContext, tmp_path: Path
 ) -> None:
+    document = _execute(context, tmp_path / "record.json")
+    links = document["links"]
+    assert isinstance(links, list)
+    application_links = [link for link in links if link["rel"] == "application"]
+    assert len(application_links) == 1
+    assert application_links[0]["href"] == str(context.source)
+    extensions = document["stac_extensions"]
+    assert isinstance(extensions, list)
+    assert "https://stac-extensions.github.io/application/v0.1.0/schema.json" in extensions
+
+
+def test_resource_links_use_context_source(context: TranspilerContext, tmp_path: Path) -> None:
     output = tmp_path / "record.json"
-    context = context.model_copy(update={"source": AnyUrl("file:///tmp/workflow.cwl")})
     options = CWL2OGCAPIRecordsOptions.model_validate(
         {
             "output": output,
-            "application_url": "https://example.org/release.cwl",
             "repository_url": "https://example.org/repository",
             "manifest_url": "https://example.org/codemeta.json",
             "application_input_url": "https://example.org/inputs.yml",
@@ -381,7 +380,7 @@ def test_explicit_resource_links_override_source(
     cwl2ogcrecords.execute(context, options)
     document = json.loads(output.read_text())
     links = {link["rel"]: link for link in document["links"]}
-    assert links["application"]["href"] == "https://example.org/release.cwl"
+    assert links["application"]["href"] == str(context.source)
     assert links["application"]["application:entrypoint"] == "elevation"
     assert links["vcs"]["href"] == "https://example.org/repository"
     assert links["manifest"]["href"] == "https://example.org/codemeta.json"
@@ -494,7 +493,7 @@ def test_publication_doi_links_are_url_encoded(context: TranspilerContext, tmp_p
         {"workflow_doi": "https://example.org/10.1234/workflow"},
         {"workflow_doi": "https://doi.org/10.1234/workflow?download=1"},
         {"publication_dois": ["10.1234/white space"]},
-        {"application_url": "file:///tmp/workflow.cwl"},
+        {"application_url": "https://example.org/override.cwl"},
         {"workflow_citation": " "},
         {"application_entrypoint": " "},
     ],
