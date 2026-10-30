@@ -53,6 +53,7 @@ dependencies = [
   "pystac-ext-application>=0.1.0",
   "pystac-ext-vcs>=0.1.0",
   "giturlparse>=0.15.0",
+  "requests>=2,<3",
 ]
 
 # ---------------------------------------------------------------------------
@@ -169,6 +170,7 @@ skip-install = false
 dependencies = [
   "mypy>=2.3.0",
   "types-jsonschema>=4.26.0.20260518",
+  "types-requests>=2.32.0",
   "ruff>=0.16.0",
   "bandit>=1.9.4",
   "click>=8.4.2,<9",
