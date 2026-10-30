@@ -22,6 +22,7 @@ from uuid import UUID
 
 import pytest
 from pydantic import AnyUrl, ValidationError
+from requests import RequestException, Response, Session
 from transpiler_mate.api import (
     AuthorRole,
     CreativeWork,
@@ -61,12 +62,18 @@ def metadata() -> SoftwareApplication:
 
 @pytest.fixture
 def context(metadata: SoftwareApplication) -> TranspilerContext:
+    response = Mock(spec=Response)
+    response.iter_content.return_value = [b"test"]
+    session = Mock(spec=Session)
+    session.get.return_value = response
+    resolver = Mock(spec=TranspilerContextResolver)
+    resolver._session = session
     return TranspilerContext(
         source=AnyUrl("https://example.org/workflow.cwl"),
         process_id="elevation",
         metadata=metadata,
         document={},
-        resolver=Mock(spec=TranspilerContextResolver),
+        resolver=resolver,
     )
 
 
@@ -342,6 +349,8 @@ def test_application_and_version_metadata(context: TranspilerContext, tmp_path: 
         "application:container": "Common Workflow Language",
         "application:entrypoint": "elevation",
         "application:languages": ["cwl"],
+        "file:size": 4,
+        "file:checksum": "12209f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
     }
     extensions = document["stac_extensions"]
     assert isinstance(extensions, list)
@@ -636,3 +645,77 @@ def test_invalid_repository_urls(repository_url: str) -> None:
 def test_repository_url_trims_whitespace() -> None:
     options = CWL2OGCAPIRecordsOptions(repository_url="  git@github.com:team/repo.git  ")
     assert options.repository_url == "git@github.com:team/repo.git"
+
+
+@pytest.mark.parametrize(
+    ("chunks", "expected_size", "expected_checksum"),
+    [
+        (
+            [b"te", b"", b"st"],
+            4,
+            "12209f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+        ),
+        (
+            [],
+            0,
+            "1220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        ),
+    ],
+)
+def test_file_metadata_uses_resolver_session(
+    context: TranspilerContext,
+    tmp_path: Path,
+    chunks: list[bytes],
+    expected_size: int,
+    expected_checksum: str,
+) -> None:
+    response = Mock(spec=Response)
+    response.iter_content.return_value = chunks
+    with patch.object(context.resolver, "_session", spec=Session) as session:
+        session.get.return_value = response
+        document = _execute(context, tmp_path / "record.json")
+        session.get.assert_called_once_with(str(context.source), stream=True, timeout=30)
+        session.close.assert_not_called()
+    response.raise_for_status.assert_called_once_with()
+    response.close.assert_called_once_with()
+    links = document["links"]
+    assert isinstance(links, list)
+    application = next(link for link in links if link["rel"] == "application")
+    assert application["file:size"] == expected_size
+    assert application["file:checksum"] == expected_checksum
+    assert "file:local_path" not in application
+    extensions = document["stac_extensions"]
+    assert isinstance(extensions, list)
+    assert "https://stac-extensions.github.io/file/v2.1.0/schema.json" in extensions
+
+
+@pytest.mark.parametrize("operation", ["get", "status", "read"])
+def test_file_retrieval_failure_preserves_cause(
+    context: TranspilerContext, tmp_path: Path, operation: str
+) -> None:
+    response = Mock(spec=Response)
+    failure = RequestException("Source unavailable")
+    output = tmp_path / "record.json"
+    with patch.object(context.resolver, "_session", spec=Session) as session:
+        session.get.return_value = response
+        failing_call = {
+            "get": session.get,
+            "status": response.raise_for_status,
+            "read": response.iter_content,
+        }[operation]
+        failing_call.side_effect = failure
+        with pytest.raises(PluginExecutionError) as caught:
+            cwl2ogcrecords.execute(context, CWL2OGCAPIRecordsOptions(output=output))
+        session.close.assert_not_called()
+    assert caught.value.__cause__ is failure
+    assert not output.exists()
+    if operation != "get":
+        response.close.assert_called_once_with()
+
+
+def test_file_metadata_requires_resolver_session(
+    context: TranspilerContext, tmp_path: Path
+) -> None:
+    context = context.model_copy(update={"resolver": Mock(spec=TranspilerContextResolver)})
+    with pytest.raises(PluginExecutionError, match="resolver with a _session"):
+        cwl2ogcrecords.execute(context, CWL2OGCAPIRecordsOptions(output=tmp_path / "record.json"))

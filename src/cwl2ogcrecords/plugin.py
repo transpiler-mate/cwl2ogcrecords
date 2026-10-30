@@ -16,12 +16,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import uuid
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Protocol, runtime_checkable
 from urllib.parse import unquote, urlsplit
 
 from giturlparse import parse as parse_git_url
@@ -37,6 +38,7 @@ from pydantic import (
 )
 from pystac import Link
 from pystac.extensions.application import ApplicationExtension
+from pystac.extensions.file import FileExtension
 from pystac.extensions.ogc_record import (
     Contact,
     ContactDetail,
@@ -49,6 +51,7 @@ from pystac.extensions.ogc_record import (
 from pystac.extensions.scientific import Publication, ScientificExtension, doi_to_url
 from pystac.extensions.vcs import VcsExtension
 from pystac.extensions.version import VersionExtension
+from requests import RequestException, Session
 from transpiler_mate.api import (
     AuthorRole,
     CreativeWork,
@@ -164,6 +167,45 @@ class CWL2OGCAPIRecordsOptions(BaseModel):
     )
 
 
+@runtime_checkable
+class _ResolverWithSession(Protocol):
+    """Describe the runtime's private session needed for authenticated source access."""
+
+    _session: Session
+
+
+def _add_file_metadata(context: TranspilerContext, link: Link) -> None:
+    """Fetch the source again through the resolver and describe its returned bytes.
+
+    The resolver session is borrowed and remains open. File metadata describes
+    this second fetch, which may differ from the original input if it changed.
+
+    Raises:
+        PluginExecutionError: If the resolver has no session or retrieval fails.
+    """
+    resolver = context.resolver
+    if not isinstance(resolver, _ResolverWithSession):
+        raise PluginExecutionError("File metadata requires a resolver with a _session")
+    checksum = hashlib.sha256()
+    size = 0
+    try:
+        # Reuse the runtime's authenticated adapters for every supported scheme.
+        response = resolver._session.get(str(context.source), stream=True, timeout=30)
+        try:
+            response.raise_for_status()
+            for chunk in response.iter_content(chunk_size=65536):
+                checksum.update(chunk)
+                size += len(chunk)
+        finally:
+            response.close()
+    except (RequestException, OSError) as exc:
+        raise PluginExecutionError("Unable to retrieve application file metadata") from exc
+    # Multihash prefix: SHA2-256 (0x12), followed by its 32-byte digest length.
+    FileExtension.ext(link, add_if_missing=True).apply(
+        checksum="1220" + checksum.hexdigest(), size=size
+    )
+
+
 def _add_application_metadata(
     context: TranspilerContext, options: CWL2OGCAPIRecordsOptions, target: OGCRecord | Link
 ) -> None:
@@ -177,8 +219,10 @@ def _add_application_metadata(
         source = context.source
         if source:
             link = Link("application", str(source), media_type="application/cwl")
+
             _add_application_metadata(context, options, link)
             target.add_link(link)
+            _add_file_metadata(context, link)
         for relation, target_obj in (
             ("manifest", options.manifest_url),
             ("application-input", options.application_input_url),
