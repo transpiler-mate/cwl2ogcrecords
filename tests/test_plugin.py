@@ -346,7 +346,9 @@ def test_application_and_version_metadata(context: TranspilerContext, tmp_path: 
     assert properties["version"] == "1.0.0"
     links = document["links"]
     assert isinstance(links, list)
-    assert next(link for link in links if link["rel"] == "application") == {
+    assert next(
+        link for link in links if link["rel"] == "application" and link["type"] == "application/cwl"
+    ) == {
         "rel": "application",
         "href": "https://example.org/workflow.cwl",
         "type": "application/cwl",
@@ -365,25 +367,41 @@ def test_application_and_version_metadata(context: TranspilerContext, tmp_path: 
     assert not any(key.startswith(("sci:", "processing:")) for key in properties)
 
 
+@pytest.mark.parametrize("source", ["https://example.org/workflow.cwl", "file:///tmp/workflow.cwl"])
+@pytest.mark.parametrize("options", [{}, {"application_url": None}])
 def test_application_link_preserves_context_source(
-    context: TranspilerContext, tmp_path: Path
+    context: TranspilerContext, tmp_path: Path, source: str, options: dict[str, object]
 ) -> None:
-    document = _execute(context, tmp_path / "record.json")
+    context = context.model_copy(update={"source": AnyUrl(source)})
+    output = tmp_path / "record.json"
+    cwl2ogcrecords.execute(
+        context, CWL2OGCAPIRecordsOptions.model_validate({"output": output, **options})
+    )
+    document = json.loads(output.read_text())
     links = document["links"]
     assert isinstance(links, list)
     application_links = [link for link in links if link["rel"] == "application"]
     assert len(application_links) == 1
     assert application_links[0]["href"] == str(context.source)
+    assert application_links[0]["type"] == "application/cwl"
     extensions = document["stac_extensions"]
     assert isinstance(extensions, list)
     assert "https://stac-extensions.github.io/application/v0.1.0/schema.json" in extensions
 
 
-def test_resource_links_use_context_source(context: TranspilerContext, tmp_path: Path) -> None:
+@pytest.mark.parametrize("source", ["https://example.org/workflow.cwl", "file:///tmp/workflow.cwl"])
+@pytest.mark.parametrize(
+    "application_url", ["https://example.org/execute", "http://example.org/execute"]
+)
+def test_execution_link_is_separate_from_cwl_source(
+    context: TranspilerContext, tmp_path: Path, source: str, application_url: str
+) -> None:
+    context = context.model_copy(update={"source": AnyUrl(source)})
     output = tmp_path / "record.json"
     options = CWL2OGCAPIRecordsOptions.model_validate(
         {
             "output": output,
+            "application_url": application_url,
             "repository_url": "https://example.org/repository",
             "manifest_url": "https://example.org/codemeta.json",
             "application_input_url": "https://example.org/inputs.yml",
@@ -392,13 +410,31 @@ def test_resource_links_use_context_source(context: TranspilerContext, tmp_path:
     )
     cwl2ogcrecords.execute(context, options)
     document = json.loads(output.read_text())
-    links = {link["rel"]: link for link in document["links"]}
-    assert links["application"]["href"] == str(context.source)
-    assert links["application"]["application:entrypoint"] == "elevation"
-    assert links["vcs"]["href"] == "https://example.org/repository"
-    assert links["manifest"]["href"] == "https://example.org/codemeta.json"
-    assert links["application-input"]["href"] == "https://example.org/inputs.yml"
-    assert links["version-history"]["href"] == "https://example.org/changelog"
+    links = {(link["rel"], link.get("type")): link for link in document["links"]}
+    application_links = [link for link in document["links"] if link["rel"] == "application"]
+    expected_media_types = {"application/cwl", "application/json"}
+    assert len(application_links) == len(expected_media_types)
+    assert {link["type"] for link in application_links} == expected_media_types
+    assert links[("application", "application/cwl")] == {
+        "rel": "application",
+        "href": source,
+        "type": "application/cwl",
+        "application:container": "Common Workflow Language",
+        "application:entrypoint": "elevation",
+        "application:languages": ["cwl"],
+        "file:size": len(b"test"),
+        "file:checksum": "12209f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    }
+    assert links[("application", "application/json")] == {
+        "rel": "application",
+        "href": application_url,
+        "type": "application/json",
+        "application:container": "HTTP",
+    }
+    assert links[("vcs", None)]["href"] == "https://example.org/repository"
+    assert links[("manifest", None)]["href"] == "https://example.org/codemeta.json"
+    assert links[("application-input", None)]["href"] == "https://example.org/inputs.yml"
+    assert links[("version-history", None)]["href"] == "https://example.org/changelog"
 
 
 @pytest.mark.parametrize(
@@ -506,7 +542,8 @@ def test_publication_doi_links_are_url_encoded(context: TranspilerContext, tmp_p
         {"workflow_doi": "https://example.org/10.1234/workflow"},
         {"workflow_doi": "https://doi.org/10.1234/workflow?download=1"},
         {"publication_dois": ["10.1234/white space"]},
-        {"application_url": "https://example.org/override.cwl"},
+        {"application_url": "file:///tmp/workflow.cwl"},
+        {"application_url": "not-a-url"},
         {"workflow_citation": " "},
         {"application_entrypoint": " "},
     ],
@@ -540,7 +577,9 @@ def test_empty_version_and_absent_entrypoint_are_omitted(
     assert "version" not in properties
     links = document["links"]
     assert isinstance(links, list)
-    application = next(link for link in links if link["rel"] == "application")
+    application = next(
+        link for link in links if link["rel"] == "application" and link["type"] == "application/cwl"
+    )
     assert "application:entrypoint" not in application
 
 
@@ -685,7 +724,9 @@ def test_file_metadata_uses_resolver_session(
     response.close.assert_called_once_with()
     links = document["links"]
     assert isinstance(links, list)
-    application = next(link for link in links if link["rel"] == "application")
+    application = next(
+        link for link in links if link["rel"] == "application" and link["type"] == "application/cwl"
+    )
     assert application["file:size"] == expected_size
     assert application["file:checksum"] == expected_checksum
     assert "file:local_path" not in application

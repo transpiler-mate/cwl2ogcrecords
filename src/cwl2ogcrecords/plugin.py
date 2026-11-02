@@ -151,6 +151,9 @@ class CWL2OGCAPIRecordsOptions(BaseModel):
 
     output: Path = Field(default=Path("ogc-record.json"), description="The output file path")
 
+    application_url: AnyHttpUrl | None = Field(
+        default=None, description="HTTP(S) URL to execute the CWL application via JSON"
+    )
     repository_url: Annotated[str, AfterValidator(_validate_repository_url)] | None = Field(
         default=None,
         description="Public repository URL or Git remote, optionally identifying a ref",
@@ -246,6 +249,17 @@ def _add_application_metadata(
             _add_application_metadata(context, options, link)
             target.add_link(link)
             _add_file_metadata(context, link, target)
+
+        if options.application_url:
+            application_url_link = Link(
+                "application", str(options.application_url), media_type="application/json"
+            )
+
+            application_url_ext = ApplicationExtension.ext(application_url_link)
+            application_url_ext.container = "HTTP"
+
+            target.add_link(application_url_link)
+
         for relation, target_obj in (
             ("manifest", options.manifest_url),
             ("application-input", options.application_input_url),
