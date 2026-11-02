@@ -45,6 +45,21 @@ The result contains `id`, `type`, `geometry`, `properties`, and `links`. Metadat
 such as title, language, themes, and contacts appears inside `properties`.
 The plugin excludes self links when writing the file.
 
+## Link an execution endpoint
+
+Use `--application-url` to add an HTTP(S) endpoint that executes the CWL:
+
+```bash
+transpiler-mate cwl2ogcrecords --application-url https://example.org/processes/workflow/execution workflow.cwl
+```
+
+The record retains its `application/cwl` source link and adds a second
+`application` link with media type `application/json` and
+`application:container="HTTP"` for execution. The plugin publishes this link
+without calling the endpoint. Select links by both `rel` and `type`. File metadata
+and publication time still come from the context source. Without this option,
+only the CWL source application link is emitted.
+
 ## Prepare metadata
 
 Review the [mapping and input assumptions](../reference/plugin.md) before

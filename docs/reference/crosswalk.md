@@ -28,15 +28,17 @@ CWL `label` and `doc` are not mapped directly by this plugin; provide the
 corresponding software metadata.
 
 Paths refer to serialized JSON. `[]` means an array entry, and
-`links[rel=application]` means the link whose `rel` is `application`.
+`links[rel=application]` selects links whose `rel` is `application`. There can be
+two: select `type=application/cwl` for the source or `type=application/json` for
+the optional execution endpoint. The serialized `type` is the link media type.
 Namespaced keys such as `sci:doi` are literal JSON keys.
 
 ## CWL metadata and source
 
 | CWL / source input | Resolved Python field | OGC Record output | Transformation or condition |
 | --- | --- | --- | --- |
-| Process fragment in `SOURCE`, such as `workflow.cwl#main` | `context.process_id` | `id`; `links[rel=application]["application:entrypoint"]` | The ID is copied when nonempty. Otherwise `id` is a generated `urn:uuid:…`; no entrypoint is emitted. |
-| Positional `SOURCE` | `context.source` | `links[rel=application].href` | The context source URL is preserved without scheme filtering. |
+| Process fragment in `SOURCE`, such as `workflow.cwl#main` | `context.process_id` | `id`; `links[rel=application,type=application/cwl]["application:entrypoint"]` | The ID is copied when nonempty. Otherwise `id` is a generated `urn:uuid:…`; no entrypoint is emitted. |
+| Positional `SOURCE` | `context.source` | `links[rel=application,type=application/cwl].href` | The context source URL is preserved without scheme filtering, with media type `application/cwl`. |
 | `s:name` | `metadata.name` | `properties.title` | Copied. |
 | `s:description` | `metadata.description` | `properties.description` | Omitted when empty or absent. |
 | `s:dateCreated` | `metadata.date_created` | `properties.created` | UTC datetime with whole-second precision. Date-only values become midnight UTC; naive datetimes are treated as UTC. |
@@ -94,6 +96,7 @@ CLI names use hyphens, while Python option names use underscores.
 | CLI option | Python option | OGC Record output or effect |
 | --- | --- | --- |
 | `--output` | `output` | Destination file, default `ogc-record.json`. Creates parent directories and overwrites the file. Does not set a record field or self link. |
+| `--application-url` | `application_url` | HTTP(S) execution URL; adds another `application` link with media type `application/json` and `application:container="HTTP"`. File metadata remains on the CWL source link. |
 | `--repository-url` | `repository_url` | `links[rel=vcs].href`, plus inferred VCS fields on that link and in `properties`. Accepts one string; see below. |
 | `--manifest-url` | `manifest_url` | HTTP(S) `links[rel=manifest].href`. |
 | `--application-input-url` | `application_input_url` | HTTP(S) `links[rel=application-input].href`. This links to example parameters; it does not copy their contents. |
@@ -140,8 +143,8 @@ plain `vcs` link.
 | `properties.updated` | Conversion time, serialized in UTC. |
 | `properties.language` | Fixed `{"code": "en-US", "name": "English (United States)"}`. |
 | `properties.resourceLanguages` | A list containing that same language object. |
-| `links[rel=application].type` | `application/cwl`, for both YAML and JSON CWL. |
-| `links[rel=application]["application:container"]` | `Common Workflow Language`; describes the document format, not a Docker container. |
+| `links[rel=application].type` | `application/cwl` for the source (YAML or JSON CWL); `application/json` for the optional execution URL. |
+| `links[rel=application]["application:container"]` | `Common Workflow Language` for the CWL source; `HTTP` for the JSON execution endpoint. Neither describes a Docker image. |
 | `stac_extensions` — Application | Declared when an application link is emitted. |
 | `stac_extensions` — Version | Declared for a nonblank software version or an explicit version-history URL. |
 | `stac_extensions` — Scientific | Declared for a workflow DOI, citation, or publication metadata. |
@@ -165,7 +168,7 @@ transpiler-mate cwl2ogcrecords \
 ```
 
 With the host-resolved process ID `main`, this sets the record ID and application
-entrypoint to `main`. The application link uses the explicit public URL, the
+entrypoint to `main`. The CWL application link uses the context source URL, the
 repository link and record properties carry `vcs:type="git"` and
 `vcs:tag="v1.2.0"`, and the citation and related paper populate the Scientific
 fields. The software version still comes from `s:softwareVersion`; it is not

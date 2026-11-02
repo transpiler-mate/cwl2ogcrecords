@@ -17,6 +17,7 @@ option in the current implementation.
 
 | Context or software metadata | Record output |
 | --- | --- |
+| `application_url` | Optional second `application` link with media type `application/json` and `application:container="HTTP"` |
 | `context.process_id` | `id`; otherwise a generated `urn:uuid:…` |
 | `date_created` | `properties.created` as an ISO datetime string |
 | Conversion time | `properties.updated` |
@@ -89,6 +90,7 @@ provenance, processing timestamps, output datasets, or Docker image versions.
 | Source | Output |
 | --- | --- |
 | `context.source` | `application` link with media type `application/cwl` and `application:container="Common Workflow Language"` |
+| `application_url` | Optional second `application` link with media type `application/json` and `application:container="HTTP"` |
 | `context.process_id` | `application:entrypoint` on that link, when nonempty |
 | Nonempty `metadata.software_version` | `properties.version` through PySTAC's Version extension |
 | DOI-valued `metadata.identifier` | `properties["sci:doi"]` and a `cite-as` DOI resolver link |
@@ -96,20 +98,27 @@ provenance, processing timestamps, output datasets, or Docker image versions.
 | `publication_dois` | `properties["sci:publications"]` and `related` links for papers describing the workflow |
 
 No URL is guessed from a repository or release tag. The context source
-is the sole source of the application URL, without filtering its scheme. The generic `application/cwl`
-media type supports YAML and JSON without guessing the encoding from a URL.
+always supplies the CWL application link, without filtering its scheme. Set
+`application_url` to add a separate HTTP(S) execution link with media type
+`application/json` and `application:container="HTTP"`. It identifies the endpoint
+that executes the CWL; the plugin records the URL without invoking it. When the
+option is omitted or `None`, no execution link is added. Consumers should select
+application links by both `rel` and `type`, rather than assuming `rel` is unique.
+
+The generic `application/cwl` media type supports YAML and JSON without guessing the encoding from a URL.
 The context process ID must identify the process in the linked document; no
-entrypoint override option is provided. The application container
+entrypoint override option is provided. The CWL source link's container
 field describes CWL's document format, not a Docker container.
 
-Application links also include `file:size` and a SHA-256 multihash in
+The CWL source link also includes `file:size` and a SHA-256 multihash in
 `file:checksum`. The plugin fetches the source a second time through the runtime
 resolver's private `_session`, reusing its authentication and transport adapters.
 It streams the response with a 30-second request timeout and leaves the shared
 session open. Retrieval failures or a resolver without `_session` raise
 `PluginExecutionError`. These fields describe the second response, which may
 differ from the originally parsed input if the source changed. No
-`file:local_path` is inferred.
+`file:local_path` is inferred. File metadata and `published` describe only
+`context.source`. The JSON execution link does not receive CWL source metadata.
 
 When the response supplies a valid `Last-Modified` header, the plugin uses it
 as a fallback for record `published` through the Timestamps extension, normalized
@@ -121,6 +130,7 @@ Additional optional plugin settings:
 
 | Option | Default | Meaning |
 | --- | --- | --- |
+| `application_url` | `None` | HTTP(S) execution URL; adds a separate `application` link with media type `application/json` and container `HTTP` |
 | `repository_url` | `None` | Repository URL or Git remote string; adds a `vcs` link and VCS v0.1.0 metadata |
 | `manifest_url` | `None` | HTTP(S) CodeMeta/dependency manifest, linked with `manifest` |
 | `application_input_url` | `None` | HTTP(S) example parameter file, linked with `application-input` |
@@ -152,6 +162,7 @@ from cwl2ogcrecords.plugin import CWL2OGCAPIRecordsOptions, cwl2ogcrecords
 context.metadata.identifier = "10.1234/example-workflow"
 options = CWL2OGCAPIRecordsOptions.model_validate({
     "output": "workflow-record.json",
+    "application_url": "https://example.org/processes/workflow/execution",
     "repository_url": "https://github.com/example/workflow",
     "manifest_url": "https://example.org/releases/1.2.0/codemeta.json",
     "application_input_url": "https://example.org/releases/1.2.0/inputs.yml",
