@@ -17,6 +17,7 @@ option in the current implementation.
 
 | Context or software metadata | Record output |
 | --- | --- |
+| `application_url` | Optional second `application` link with media type `application/json` and `application:container="HTTP"` |
 | `context.process_id` | `id`; otherwise a generated `urn:uuid:…` |
 | `date_created` | `properties.created` as an ISO datetime string |
 | Conversion time | `properties.updated` |
@@ -24,7 +25,7 @@ option in the current implementation.
 | Truthy `description` | `properties.description`; otherwise omitted |
 | Fixed English language | `language` and `resourceLanguages`, using `en-US` and `English (United States)` |
 | `license` | String values or `CreativeWork.identifier`, joined with `: ` |
-| `author` | `contacts`, one entry per `Person` or `AuthorRole` |
+| `author`, `contributor`, `publisher` | `contacts`, with resource responsibilities in `roles` |
 | String `keywords` | `keywords` |
 | `DefinedTerm` keywords with a scheme and code | `themes`, grouped by `in_defined_term_set` |
 | `software_help` entries with a URL | Links with `rel="help"` and the entry's name as title |
@@ -43,14 +44,25 @@ optional `description`. A defined term is included when its scheme and code
 are truthy. The scheme URI is not reused as a concept URL. The plugin initializes `keywords`
 and `themes` to empty lists even when no entries qualify.
 
-Contacts use the author's identifier, `family_name, given_name`, first
-affiliation's name, and email address(es). `AuthorRole.role_name` becomes
-`position`; a plain `Person` gets `position="N/A"`. The role is not copied into
-contact `roles`.
+Contacts are emitted in author, contributor, then publisher order. People use
+`family_name, given_name`, their first affiliation when available, identifier,
+and email address(es). The publisher uses its organization name and any supplied
+identifier or email addresses. Missing identifiers and emails are omitted.
+
+Each contact receives the source responsibility (`author`, `contributor`, or
+`publisher`) in `roles`. `AuthorRole.role_name` and `ContributorRole.role_name`
+add explicit responsibilities, including `maintainer`. Common role names are
+trimmed and normalized to lowercase; other nonblank labels are preserved after
+trimming. Duplicate role values within a contact are omitted. Contacts from
+separate source entries remain separate.
+
+Resource responsibilities never populate `position`. The current input model
+has no organizational-position field, so `position` is omitted rather than
+inferred or filled with `N/A`.
 
 ## Current boundaries
 
-The plugin expects a usable creation date, authors with at least one affiliation
+The plugin expects a usable creation date, authors with valid person
 and email information, license information, and software-help objects. It does
 not supply fallbacks for all missing metadata. A help object without a URL is
 skipped; a missing help object is not handled equivalently.
@@ -77,26 +89,48 @@ provenance, processing timestamps, output datasets, or Docker image versions.
 
 | Source | Output |
 | --- | --- |
-| HTTP(S) `context.source`, or `application_url` override | `application` link with media type `application/cwl` and `application:container="Common Workflow Language"` |
+| `context.source` | `application` link with media type `application/cwl` and `application:container="Common Workflow Language"` |
+| `application_url` | Optional second `application` link with media type `application/json` and `application:container="HTTP"` |
 | `context.process_id` | `application:entrypoint` on that link, when nonempty |
 | Nonempty `metadata.software_version` | `properties.version` through PySTAC's Version extension |
 | DOI-valued `metadata.identifier` | `properties["sci:doi"]` and a `cite-as` DOI resolver link |
 | `workflow_citation` | `properties["sci:citation"]`, for the workflow itself |
 | `publication_dois` | `properties["sci:publications"]` and `related` links for papers describing the workflow |
 
-No URL is guessed from a repository or release tag. Local `file:` sources and
-other non-HTTP(S) sources are not emitted as application links; provide
-`application_url` to publish a downloadable CWL. The generic `application/cwl`
-media type supports YAML and JSON without guessing the encoding from a URL.
+No URL is guessed from a repository or release tag. The context source
+always supplies the CWL application link, without filtering its scheme. Set
+`application_url` to add a separate HTTP(S) execution link with media type
+`application/json` and `application:container="HTTP"`. It identifies the endpoint
+that executes the CWL; the plugin records the URL without invoking it. When the
+option is omitted or `None`, no execution link is added. Consumers should select
+application links by both `rel` and `type`, rather than assuming `rel` is unique.
+
+The generic `application/cwl` media type supports YAML and JSON without guessing the encoding from a URL.
 The context process ID must identify the process in the linked document; no
-entrypoint override option is provided. The application container
+entrypoint override option is provided. The CWL source link's container
 field describes CWL's document format, not a Docker container.
+
+The CWL source link also includes `file:size` and a SHA-256 multihash in
+`file:checksum`. The plugin fetches the source a second time through the runtime
+resolver's private `_session`, reusing its authentication and transport adapters.
+It streams the response with a 30-second request timeout and leaves the shared
+session open. Retrieval failures or a resolver without `_session` raise
+`PluginExecutionError`. These fields describe the second response, which may
+differ from the originally parsed input if the source changed. No
+`file:local_path` is inferred. File metadata and `published` describe only
+`context.source`. The JSON execution link does not receive CWL source metadata.
+
+When the response supplies a valid `Last-Modified` header, the plugin uses it
+as a fallback for record `published` through the Timestamps extension, normalized
+to UTC. This is a source-modification approximation, not a verified first
+publication time for the metadata record. Missing or invalid headers leave
+`published` and the Timestamps extension absent; the `Date` header is not used.
 
 Additional optional plugin settings:
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `application_url` | `None` | Public HTTP(S) CWL URL overriding the context source |
+| `application_url` | `None` | HTTP(S) execution URL; adds a separate `application` link with media type `application/json` and container `HTTP` |
 | `repository_url` | `None` | Repository URL or Git remote string; adds a `vcs` link and VCS v0.1.0 metadata |
 | `manifest_url` | `None` | HTTP(S) CodeMeta/dependency manifest, linked with `manifest` |
 | `application_input_url` | `None` | HTTP(S) example parameter file, linked with `application-input` |
@@ -128,7 +162,7 @@ from cwl2ogcrecords.plugin import CWL2OGCAPIRecordsOptions, cwl2ogcrecords
 context.metadata.identifier = "10.1234/example-workflow"
 options = CWL2OGCAPIRecordsOptions.model_validate({
     "output": "workflow-record.json",
-    "application_url": "https://example.org/releases/1.2.0/workflow.cwl",
+    "application_url": "https://example.org/processes/workflow/execution",
     "repository_url": "https://github.com/example/workflow",
     "manifest_url": "https://example.org/releases/1.2.0/codemeta.json",
     "application_input_url": "https://example.org/releases/1.2.0/inputs.yml",

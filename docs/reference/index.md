@@ -17,4 +17,5 @@ limitations under the License.
 # Reference
 
 - [Plugin](plugin.md): options, metadata mapping, and input assumptions.
+- [CWL and CLI crosswalk](crosswalk.md): source fields, options, and generated OGC Record paths.
 - [API](api.md): generated Python reference.

@@ -55,8 +55,9 @@ and themes come from the resolved software metadata. No self link is emitted.
 
 With version 0.2.0 or later, nonblank software version metadata becomes
 `properties.version`. A DOI-valued software identifier becomes `sci:doi` with a
-`cite-as` link. An HTTP(S) source produces an `application` link; a local source
-needs an explicit public `application_url` to produce that link.
+`cite-as` link. The context source produces an `application` link with media type `application/cwl`
+without scheme filtering. `--application-url` adds a separate JSON execution link with
+`application:container="HTTP"`; it does not replace the CWL source link.
 
 The [enrichment example](../reference/plugin.md#workflow-metadata-enrichment)
 shows how to supply public resource URLs, workflow citation text, and related

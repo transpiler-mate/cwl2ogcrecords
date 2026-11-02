@@ -38,8 +38,11 @@ and the fields consumed from the resolved context.
     Application links, version metadata, scientific citations, and related
     publication DOIs are available in `cwl2ogcrecords` 0.2.0 and later.
 
-Application links point to an HTTP(S) CWL source or an explicitly supplied
-public URL. The process ID identifies the entrypoint. Repository, manifest,
+The CWL application link preserves the context source and uses media type
+`application/cwl`. An optional `application_url` adds a separate JSON execution
+link with media type `application/json` and `application:container="HTTP"`.
+The plugin does not invoke that endpoint. The process ID identifies the CWL
+entrypoint. Repository, manifest,
 example inputs, and version-history URLs are included only when supplied.
 
 Version metadata comes from the software version. Scientific metadata separates

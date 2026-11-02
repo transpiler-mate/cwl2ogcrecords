@@ -16,12 +16,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import uuid
 from datetime import date, datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, Protocol, runtime_checkable
 from urllib.parse import unquote, urlsplit
 
 from giturlparse import parse as parse_git_url
@@ -36,22 +38,29 @@ from pydantic import (
     StringConstraints,
 )
 from pystac import Link
+from pystac.extensions.application import ApplicationExtension
+from pystac.extensions.file import FileExtension
 from pystac.extensions.ogc_record import (
     Contact,
     ContactDetail,
     Language,
+    NamedContact,
     OGCRecord,
     OrganizationContact,
     Theme,
     ThemeConcept,
 )
 from pystac.extensions.scientific import Publication, ScientificExtension, doi_to_url
+from pystac.extensions.timestamps import TimestampsExtension
 from pystac.extensions.vcs import VcsExtension
 from pystac.extensions.version import VersionExtension
+from requests import RequestException, Session
 from transpiler_mate.api import (
     AuthorRole,
+    ContributorRole,
     CreativeWork,
     DefinedTerm,
+    Organization,
     Person,
     PluginExecutionError,
     SoftwareApplication,
@@ -63,9 +72,6 @@ if TYPE_CHECKING:
 
 
 __DEFAULT_LANGUAGE__: Language = Language(code="en-US", name="English (United States)")
-
-
-APPLICATION_SCHEMA = "https://stac-extensions.github.io/application/v0.1.0/schema.json"
 
 
 def _normalize_doi(value: str) -> str:
@@ -146,7 +152,7 @@ class CWL2OGCAPIRecordsOptions(BaseModel):
     output: Path = Field(default=Path("ogc-record.json"), description="The output file path")
 
     application_url: AnyHttpUrl | None = Field(
-        default=None, description="Public CWL URL; defaults to an HTTP(S) context.source"
+        default=None, description="HTTP(S) URL to execute the CWL application via JSON"
     )
     repository_url: Annotated[str, AfterValidator(_validate_repository_url)] | None = Field(
         default=None,
@@ -169,29 +175,97 @@ class CWL2OGCAPIRecordsOptions(BaseModel):
     )
 
 
-def _add_application_links(
-    context: TranspilerContext, options: CWL2OGCAPIRecordsOptions, record: OGCRecord
+@runtime_checkable
+class _ResolverWithSession(Protocol):
+    """Describe the runtime's private session needed for authenticated source access."""
+
+    _session: Session
+
+
+def _add_file_metadata(context: TranspilerContext, link: Link, record: OGCRecord) -> None:
+    """Fetch the source again through the resolver and describe its returned bytes.
+
+    The resolver session is borrowed and remains open. File metadata describes
+    this second fetch, which may differ from the original input if it changed.
+
+    Raises:
+        PluginExecutionError: If the resolver has no session or retrieval fails.
+    """
+    resolver = context.resolver
+    if not isinstance(resolver, _ResolverWithSession):
+        raise PluginExecutionError("File metadata requires a resolver with a _session")
+    checksum = hashlib.sha256()
+    size = 0
+    try:
+        # Reuse the runtime's authenticated adapters for every supported scheme.
+        response = resolver._session.get(str(context.source), stream=True, timeout=30)
+        try:
+            response.raise_for_status()
+            for chunk in response.iter_content(chunk_size=65536):
+                checksum.update(chunk)
+                size += len(chunk)
+            last_modified = response.headers.get("Last-Modified")
+        finally:
+            response.close()
+    except (RequestException, OSError) as exc:
+        raise PluginExecutionError("Unable to retrieve application file metadata") from exc
+    # Multihash prefix: SHA2-256 (0x12), followed by its 32-byte digest length.
+    FileExtension.ext(link, add_if_missing=True).apply(
+        checksum="1220" + checksum.hexdigest(), size=size
+    )
+    _add_publication_metadata(record, last_modified)
+
+
+def _add_publication_metadata(record: OGCRecord, last_modified: str | None) -> None:
+    """Use a valid HTTP modification date as a publication-time approximation.
+
+    Missing or malformed dates leave the record unchanged. This fallback reflects
+    source modification, not an independently verified first publication event.
+    """
+    if not last_modified:
+        return
+    try:
+        published = _to_datetime(parsedate_to_datetime(last_modified)).astimezone(timezone.utc)
+    except (ValueError, OverflowError):
+        logger.debug("Ignoring invalid Last-Modified header for publication metadata")
+        return
+    TimestampsExtension.ext(record, add_if_missing=True).published = published
+
+
+def _add_application_metadata(
+    context: TranspilerContext, options: CWL2OGCAPIRecordsOptions, target: OGCRecord | Link
 ) -> None:
-    """Attach explicitly known application resources without publishing local paths."""
-    source = options.application_url
-    if source is None and context.source.scheme in {"http", "https"}:
-        source = AnyHttpUrl(str(context.source))
-    if source is not None:
-        link = Link("application", str(source), media_type="application/cwl")
-        link.extra_fields["application:container"] = "Common Workflow Language"
-        entrypoint = context.process_id
-        if entrypoint:
-            link.extra_fields["application:entrypoint"] = entrypoint
-        record.add_link(link)
-    for relation, target in (
-        ("manifest", options.manifest_url),
-        ("application-input", options.application_input_url),
-    ):
-        if target is not None:
-            record.add_link(Link(relation, str(target)))
-    if source is not None:
-        # Application currently has no accessor in the project's PySTAC dependency.
-        record.stac_extensions.append(APPLICATION_SCHEMA)
+    """Add STAC Application Extension metadata."""
+    app_ext = ApplicationExtension.ext(target, add_if_missing=isinstance(target, OGCRecord))
+    app_ext.apply(
+        container="Common Workflow Language", entrypoint=context.process_id, languages=["cwl"]
+    )
+
+    if isinstance(target, OGCRecord):
+        source = context.source
+        if source:
+            link = Link("application", str(source), media_type="application/cwl")
+
+            _add_application_metadata(context, options, link)
+            target.add_link(link)
+            _add_file_metadata(context, link, target)
+
+        if options.application_url:
+            application_url_link = Link(
+                "application", str(options.application_url), media_type="application/json"
+            )
+
+            application_url_ext = ApplicationExtension.ext(application_url_link)
+            application_url_ext.container = "HTTP"
+
+            target.add_link(application_url_link)
+
+        for relation, target_obj in (
+            ("manifest", options.manifest_url),
+            ("application-input", options.application_input_url),
+        ):
+            if target_obj is not None:
+                target.add_link(Link(relation, str(target_obj)))
 
 
 def _add_scientific_metadata(
@@ -228,7 +302,6 @@ def _add_workflow_extensions(
     context: TranspilerContext, options: CWL2OGCAPIRecordsOptions, record: OGCRecord
 ) -> None:
     """Enrich a workflow definition without inventing execution provenance."""
-    _add_application_links(context, options, record)
     version = context.metadata.software_version.strip()
     if version or options.version_history_url:
         version_extension = VersionExtension.ext(record, add_if_missing=True)
@@ -297,34 +370,59 @@ def _add_help_links(metadata: SoftwareApplication, record: OGCRecord) -> None:
             )
 
 
-def _to_contact(author: Person | AuthorRole) -> Contact:
-    position: str = "N/A"
+def _to_contact(
+    agent: Person | AuthorRole | ContributorRole | Organization, responsibility: str
+) -> Contact:
+    """Map a resource participant without treating responsibilities as job positions.
 
-    if isinstance(author, AuthorRole):
-        position = author.role_name
-        author = author.author
+    The source property supplies the base responsibility. Explicit role names
+    supplement it, preserving custom labels and normalizing common roles.
+    """
+    roles = [responsibility]
+    if isinstance(agent, (AuthorRole, ContributorRole)):
+        role_name = agent.role_name.strip()
+        if role_name.casefold() in {"author", "contributor", "publisher", "maintainer"}:
+            role_name = role_name.casefold()
+        if role_name and role_name not in roles:
+            roles.append(role_name)
+        agent = agent.author if isinstance(agent, AuthorRole) else agent.contributor
 
-    affiliations = (
-        author.affiliation if isinstance(author.affiliation, list) else [author.affiliation]
-    )
+    return _participant_contact(agent, roles)
 
-    def _to_contact_detail(email: str) -> ContactDetail:
-        return ContactDetail(value=email)
 
-    emails: list[ContactDetail] = list(
-        map(
-            _to_contact_detail,
-            (author.email if isinstance(author.email, list) else [author.email]),
+def _participant_contact(agent: Person | Organization, roles: list[str]) -> Contact:
+    """Map participant identity and contact details, omitting unavailable fields."""
+    contact: Contact
+    if isinstance(agent, Organization):
+        contact = OrganizationContact(organization=agent.name, roles=roles)
+    else:
+        contact = NamedContact(name=f"{agent.family_name}, {agent.given_name}", roles=roles)
+        affiliations = (
+            agent.affiliation if isinstance(agent.affiliation, list) else [agent.affiliation]
         )
-    )
+        if affiliations:
+            contact["organization"] = affiliations[0].name
+    if agent.identifier is not None:
+        contact["identifier"] = str(agent.identifier)
+    if agent.email:
+        emails = agent.email if isinstance(agent.email, list) else [agent.email]
+        contact["emails"] = [ContactDetail(value=email) for email in emails]
+    return contact
 
-    return OrganizationContact(
-        identifier=str(author.identifier),
-        name=f"{author.family_name}, {author.given_name}",
-        organization=affiliations[0].name,
-        position=position,
-        emails=emails,
-    )
+
+def _to_contacts(metadata: SoftwareApplication) -> list[Contact]:
+    """Return authors, contributors, and publisher with their resource responsibilities."""
+    authors = metadata.author if isinstance(metadata.author, list) else [metadata.author]
+    contacts = [_to_contact(author, "author") for author in authors]
+    if metadata.contributor is not None:
+        contributors = (
+            metadata.contributor
+            if isinstance(metadata.contributor, list)
+            else [metadata.contributor]
+        )
+        contacts.extend(_to_contact(contributor, "contributor") for contributor in contributors)
+    contacts.append(_to_contact(metadata.publisher, "publisher"))
+    return contacts
 
 
 def _add_vcs_metadata(options: CWL2OGCAPIRecordsOptions, record: OGCRecord) -> None:
@@ -397,15 +495,9 @@ def cwl2ogcrecords(context: TranspilerContext, options: CWL2OGCAPIRecordsOptions
         ]
     )
 
-    record.contacts = list(
-        map(
-            _to_contact,
-            context.metadata.author
-            if isinstance(context.metadata.author, list)
-            else [context.metadata.author],
-        )
-    )
+    record.contacts = _to_contacts(context.metadata)
 
+    _add_application_metadata(context, options, record)
     _add_kw_themes(context.metadata, record)
     _add_help_links(context.metadata, record)
     _add_workflow_extensions(context, options, record)

@@ -22,10 +22,13 @@ from uuid import UUID
 
 import pytest
 from pydantic import AnyUrl, ValidationError
+from requests import RequestException, Response, Session
 from transpiler_mate.api import (
     AuthorRole,
+    ContributorRole,
     CreativeWork,
     DefinedTerm,
+    Organization,
     Person,
     PluginExecutionError,
     SoftwareApplication,
@@ -61,12 +64,19 @@ def metadata() -> SoftwareApplication:
 
 @pytest.fixture
 def context(metadata: SoftwareApplication) -> TranspilerContext:
+    response = Mock(spec=Response)
+    response.headers = {}
+    response.iter_content.return_value = [b"test"]
+    session = Mock(spec=Session)
+    session.get.return_value = response
+    resolver = Mock(spec=TranspilerContextResolver)
+    resolver._session = session
     return TranspilerContext(
         source=AnyUrl("https://example.org/workflow.cwl"),
         process_id="elevation",
         metadata=metadata,
         document={},
-        resolver=Mock(spec=TranspilerContextResolver),
+        resolver=resolver,
     )
 
 
@@ -128,9 +138,10 @@ def test_serializes_metadata_and_creates_parent_directories(
             "identifier": "https://example.org/ada",
             "name": "Lovelace, Ada",
             "organization": "Example Institute",
-            "position": "N/A",
+            "roles": ["author"],
             "emails": [{"value": "ada@example.org"}],
-        }
+        },
+        {"organization": "Example Institute", "roles": ["publisher"]},
     ]
     links = document["links"]
     assert isinstance(links, list)
@@ -207,12 +218,12 @@ def test_author_roles_multiple_emails_and_affiliations(
     context.metadata.author = [author, role]
     contacts = _properties(context, tmp_path)["contacts"]
     assert isinstance(contacts, list)
-    assert [contact["name"] for contact in contacts] == ["Lovelace, Ada", "Hopper, Grace"]
+    assert [contact["name"] for contact in contacts[:-1]] == ["Lovelace, Ada", "Hopper, Grace"]
     assert contacts[1] == {
         "identifier": "grace",
         "name": "Hopper, Grace",
         "organization": "First Institute",
-        "position": "Maintainer",
+        "roles": ["author", "maintainer"],
         "emails": [{"value": "grace@example.org"}, {"value": "hopper@example.org"}],
     }
 
@@ -335,12 +346,17 @@ def test_application_and_version_metadata(context: TranspilerContext, tmp_path: 
     assert properties["version"] == "1.0.0"
     links = document["links"]
     assert isinstance(links, list)
-    assert next(link for link in links if link["rel"] == "application") == {
+    assert next(
+        link for link in links if link["rel"] == "application" and link["type"] == "application/cwl"
+    ) == {
         "rel": "application",
         "href": "https://example.org/workflow.cwl",
         "type": "application/cwl",
         "application:container": "Common Workflow Language",
         "application:entrypoint": "elevation",
+        "application:languages": ["cwl"],
+        "file:size": 4,
+        "file:checksum": "12209f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
     }
     extensions = document["stac_extensions"]
     assert isinstance(extensions, list)
@@ -351,27 +367,41 @@ def test_application_and_version_metadata(context: TranspilerContext, tmp_path: 
     assert not any(key.startswith(("sci:", "processing:")) for key in properties)
 
 
-@pytest.mark.parametrize("source", ["file:///tmp/workflow.cwl", "urn:example:workflow"])
-def test_local_sources_are_not_published(
-    context: TranspilerContext, tmp_path: Path, source: str
+@pytest.mark.parametrize("source", ["https://example.org/workflow.cwl", "file:///tmp/workflow.cwl"])
+@pytest.mark.parametrize("options", [{}, {"application_url": None}])
+def test_application_link_preserves_context_source(
+    context: TranspilerContext, tmp_path: Path, source: str, options: dict[str, object]
 ) -> None:
     context = context.model_copy(update={"source": AnyUrl(source)})
-    document = _execute(context, tmp_path / "record.json")
-    assert source not in json.dumps(document)
+    output = tmp_path / "record.json"
+    cwl2ogcrecords.execute(
+        context, CWL2OGCAPIRecordsOptions.model_validate({"output": output, **options})
+    )
+    document = json.loads(output.read_text())
+    links = document["links"]
+    assert isinstance(links, list)
+    application_links = [link for link in links if link["rel"] == "application"]
+    assert len(application_links) == 1
+    assert application_links[0]["href"] == str(context.source)
+    assert application_links[0]["type"] == "application/cwl"
     extensions = document["stac_extensions"]
     assert isinstance(extensions, list)
-    assert "https://stac-extensions.github.io/application/v0.1.0/schema.json" not in extensions
+    assert "https://stac-extensions.github.io/application/v0.1.0/schema.json" in extensions
 
 
-def test_explicit_resource_links_override_source(
-    context: TranspilerContext, tmp_path: Path
+@pytest.mark.parametrize("source", ["https://example.org/workflow.cwl", "file:///tmp/workflow.cwl"])
+@pytest.mark.parametrize(
+    "application_url", ["https://example.org/execute", "http://example.org/execute"]
+)
+def test_execution_link_is_separate_from_cwl_source(
+    context: TranspilerContext, tmp_path: Path, source: str, application_url: str
 ) -> None:
+    context = context.model_copy(update={"source": AnyUrl(source)})
     output = tmp_path / "record.json"
-    context = context.model_copy(update={"source": AnyUrl("file:///tmp/workflow.cwl")})
     options = CWL2OGCAPIRecordsOptions.model_validate(
         {
             "output": output,
-            "application_url": "https://example.org/release.cwl",
+            "application_url": application_url,
             "repository_url": "https://example.org/repository",
             "manifest_url": "https://example.org/codemeta.json",
             "application_input_url": "https://example.org/inputs.yml",
@@ -380,13 +410,31 @@ def test_explicit_resource_links_override_source(
     )
     cwl2ogcrecords.execute(context, options)
     document = json.loads(output.read_text())
-    links = {link["rel"]: link for link in document["links"]}
-    assert links["application"]["href"] == "https://example.org/release.cwl"
-    assert links["application"]["application:entrypoint"] == "elevation"
-    assert links["vcs"]["href"] == "https://example.org/repository"
-    assert links["manifest"]["href"] == "https://example.org/codemeta.json"
-    assert links["application-input"]["href"] == "https://example.org/inputs.yml"
-    assert links["version-history"]["href"] == "https://example.org/changelog"
+    links = {(link["rel"], link.get("type")): link for link in document["links"]}
+    application_links = [link for link in document["links"] if link["rel"] == "application"]
+    expected_media_types = {"application/cwl", "application/json"}
+    assert len(application_links) == len(expected_media_types)
+    assert {link["type"] for link in application_links} == expected_media_types
+    assert links[("application", "application/cwl")] == {
+        "rel": "application",
+        "href": source,
+        "type": "application/cwl",
+        "application:container": "Common Workflow Language",
+        "application:entrypoint": "elevation",
+        "application:languages": ["cwl"],
+        "file:size": len(b"test"),
+        "file:checksum": "12209f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+    }
+    assert links[("application", "application/json")] == {
+        "rel": "application",
+        "href": application_url,
+        "type": "application/json",
+        "application:container": "HTTP",
+    }
+    assert links[("vcs", None)]["href"] == "https://example.org/repository"
+    assert links[("manifest", None)]["href"] == "https://example.org/codemeta.json"
+    assert links[("application-input", None)]["href"] == "https://example.org/inputs.yml"
+    assert links[("version-history", None)]["href"] == "https://example.org/changelog"
 
 
 @pytest.mark.parametrize(
@@ -495,6 +543,7 @@ def test_publication_doi_links_are_url_encoded(context: TranspilerContext, tmp_p
         {"workflow_doi": "https://doi.org/10.1234/workflow?download=1"},
         {"publication_dois": ["10.1234/white space"]},
         {"application_url": "file:///tmp/workflow.cwl"},
+        {"application_url": "not-a-url"},
         {"workflow_citation": " "},
         {"application_entrypoint": " "},
     ],
@@ -528,7 +577,9 @@ def test_empty_version_and_absent_entrypoint_are_omitted(
     assert "version" not in properties
     links = document["links"]
     assert isinstance(links, list)
-    application = next(link for link in links if link["rel"] == "application")
+    application = next(
+        link for link in links if link["rel"] == "application" and link["type"] == "application/cwl"
+    )
     assert "application:entrypoint" not in application
 
 
@@ -637,3 +688,192 @@ def test_invalid_repository_urls(repository_url: str) -> None:
 def test_repository_url_trims_whitespace() -> None:
     options = CWL2OGCAPIRecordsOptions(repository_url="  git@github.com:team/repo.git  ")
     assert options.repository_url == "git@github.com:team/repo.git"
+
+
+@pytest.mark.parametrize(
+    ("chunks", "expected_size", "expected_checksum"),
+    [
+        (
+            [b"te", b"", b"st"],
+            4,
+            "12209f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+        ),
+        (
+            [],
+            0,
+            "1220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        ),
+    ],
+)
+def test_file_metadata_uses_resolver_session(
+    context: TranspilerContext,
+    tmp_path: Path,
+    chunks: list[bytes],
+    expected_size: int,
+    expected_checksum: str,
+) -> None:
+    response = Mock(spec=Response)
+    response.headers = {}
+    response.iter_content.return_value = chunks
+    with patch.object(context.resolver, "_session", spec=Session) as session:
+        session.get.return_value = response
+        document = _execute(context, tmp_path / "record.json")
+        session.get.assert_called_once_with(str(context.source), stream=True, timeout=30)
+        session.close.assert_not_called()
+    response.raise_for_status.assert_called_once_with()
+    response.close.assert_called_once_with()
+    links = document["links"]
+    assert isinstance(links, list)
+    application = next(
+        link for link in links if link["rel"] == "application" and link["type"] == "application/cwl"
+    )
+    assert application["file:size"] == expected_size
+    assert application["file:checksum"] == expected_checksum
+    assert "file:local_path" not in application
+    extensions = document["stac_extensions"]
+    assert isinstance(extensions, list)
+    assert "https://stac-extensions.github.io/file/v2.1.0/schema.json" in extensions
+
+
+@pytest.mark.parametrize("operation", ["get", "status", "read"])
+def test_file_retrieval_failure_preserves_cause(
+    context: TranspilerContext, tmp_path: Path, operation: str
+) -> None:
+    response = Mock(spec=Response)
+    response.headers = {}
+    failure = RequestException("Source unavailable")
+    output = tmp_path / "record.json"
+    with patch.object(context.resolver, "_session", spec=Session) as session:
+        session.get.return_value = response
+        failing_call = {
+            "get": session.get,
+            "status": response.raise_for_status,
+            "read": response.iter_content,
+        }[operation]
+        failing_call.side_effect = failure
+        with pytest.raises(PluginExecutionError) as caught:
+            cwl2ogcrecords.execute(context, CWL2OGCAPIRecordsOptions(output=output))
+        session.close.assert_not_called()
+    assert caught.value.__cause__ is failure
+    assert not output.exists()
+    if operation != "get":
+        response.close.assert_called_once_with()
+
+
+def test_file_metadata_requires_resolver_session(
+    context: TranspilerContext, tmp_path: Path
+) -> None:
+    context = context.model_copy(update={"resolver": Mock(spec=TranspilerContextResolver)})
+    with pytest.raises(PluginExecutionError, match="resolver with a _session"):
+        cwl2ogcrecords.execute(context, CWL2OGCAPIRecordsOptions(output=tmp_path / "record.json"))
+
+
+@pytest.mark.parametrize(
+    ("last_modified", "expected"),
+    [
+        ("Wed, 21 Oct 2015 07:28:00 GMT", "2015-10-21T07:28:00Z"),
+        ("Wed, 21 Oct 2015 09:28:00 +0200", "2015-10-21T07:28:00Z"),
+        ("Wed Oct 21 07:28:00 2015", "2015-10-21T07:28:00Z"),
+        (None, None),
+        ("", None),
+        ("invalid", None),
+        ("Wed, 32 Oct 2015 07:28:00 GMT", None),
+    ],
+)
+def test_publication_fallback_from_last_modified(
+    context: TranspilerContext,
+    tmp_path: Path,
+    last_modified: str | None,
+    expected: str | None,
+) -> None:
+    response = Mock(spec=Response)
+    response.headers = {"Date": "Fri, 30 Oct 2026 10:00:00 GMT"}
+    if last_modified is not None:
+        response.headers["Last-Modified"] = last_modified
+    response.iter_content.return_value = [b"test"]
+    with patch.object(context.resolver, "_session", spec=Session) as session:
+        session.get.return_value = response
+        document = _execute(context, tmp_path / "record.json")
+    properties = document["properties"]
+    assert isinstance(properties, dict)
+    extensions = document["stac_extensions"]
+    assert isinstance(extensions, list)
+    timestamps_schema = "https://stac-extensions.github.io/timestamps/v1.1.0/schema.json"
+    if expected is None:
+        assert "published" not in properties
+        assert timestamps_schema not in extensions
+    else:
+        assert properties["published"] == expected
+        assert timestamps_schema in extensions
+    response.close.assert_called_once_with()
+
+
+@pytest.mark.parametrize("multiple", [False, True])
+def test_contributors_include_resource_roles(
+    context: TranspilerContext, tmp_path: Path, multiple: bool
+) -> None:
+    person = context.metadata.author
+    assert isinstance(person, Person)
+    maintainer = ContributorRole.model_validate({"roleName": " Maintainer ", "contributor": person})
+    context.metadata.contributor = [person, maintainer] if multiple else maintainer
+    contacts = _properties(context, tmp_path)["contacts"]
+    assert isinstance(contacts, list)
+    expected_roles = (
+        [["contributor"], ["contributor", "maintainer"]]
+        if multiple
+        else [["contributor", "maintainer"]]
+    )
+    assert [contact["roles"] for contact in contacts[1:-1]] == expected_roles
+    assert all("position" not in contact for contact in contacts)
+
+
+@pytest.mark.parametrize("multiple", [False, True])
+def test_publisher_contact_details(
+    context: TranspilerContext, tmp_path: Path, multiple: bool
+) -> None:
+    context.metadata.publisher = Organization.model_validate(
+        {
+            "name": "Workflow Publisher",
+            "identifier": "https://example.org/publisher",
+            "email": ["first@example.org", "second@example.org"]
+            if multiple
+            else "first@example.org",
+        }
+    )
+    contacts = _properties(context, tmp_path)["contacts"]
+    assert isinstance(contacts, list)
+    expected_emails = [{"value": "first@example.org"}]
+    if multiple:
+        expected_emails.append({"value": "second@example.org"})
+    assert contacts[-1] == {
+        "organization": "Workflow Publisher",
+        "identifier": "https://example.org/publisher",
+        "emails": expected_emails,
+        "roles": ["publisher"],
+    }
+
+
+@pytest.mark.parametrize(
+    ("role_name", "expected_roles"),
+    [
+        ("Author", ["author"]),
+        ("", ["author"]),
+        ("   ", ["author"]),
+        (" Principal Investigator ", ["author", "Principal Investigator"]),
+    ],
+)
+def test_author_role_names_are_responsibilities(
+    context: TranspilerContext, tmp_path: Path, role_name: str, expected_roles: list[str]
+) -> None:
+    person = context.metadata.author
+    assert isinstance(person, Person)
+    person.identifier = None
+    person.affiliation = []
+    context.metadata.author = AuthorRole.model_validate({"roleName": role_name, "author": person})
+    contacts = _properties(context, tmp_path)["contacts"]
+    assert isinstance(contacts, list)
+    assert contacts[0] == {
+        "name": "Lovelace, Ada",
+        "roles": expected_roles,
+        "emails": [{"value": "ada@example.org"}],
+    }
